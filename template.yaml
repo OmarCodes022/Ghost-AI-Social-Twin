@@ -224,12 +224,23 @@ Resources:
       FunctionName: !Sub ghost-telegram-bot-${Env}
       CodeUri: functions/telegram_bot/
       Handler: handler.lambda_handler
+      Timeout: 30
       Events:
         EscalationSNS:
           Type: SNS
           Properties:
             Topic: !Ref GhostEscalationsTopic
+        TelegramWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /telegram
+            Method: POST
       Policies:
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
         - Statement:
             - Effect: Allow
               Action: ssm:GetParameter

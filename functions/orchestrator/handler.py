@@ -395,6 +395,15 @@ def _publish_escalation(
         confidence=confidence,
     )
 
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO escalations (id, message_id, reason, confidence)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (escalation_id, message_id, reason, confidence),
+        )
+
     _get_sns_client().publish(
         TopicArn=topic_arn,
         Message=payload.model_dump_json(),
