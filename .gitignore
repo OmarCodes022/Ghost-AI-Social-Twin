@@ -1,0 +1,36 @@
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+
+# AWS SAM build artifacts
+.aws-sam/
+
+# Installed layer packages (built locally via make layer-install)
+layers/ghost_common/python/anthropic/
+layers/ghost_common/python/pydantic/
+layers/ghost_common/python/psycopg2/
+layers/ghost_common/python/requests/
+layers/ghost_common/python/*.dist-info
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env.local
+secrets.json

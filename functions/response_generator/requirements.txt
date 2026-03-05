@@ -1,0 +1,2 @@
+# All runtime dependencies are provided by the ghost-common Lambda layer.
+# anthropic is included in the layer for Phase 2 implementation.

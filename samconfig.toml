@@ -1,0 +1,27 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "ghost-dev"
+region = "eu-west-1"
+
+[default.build.parameters]
+parallel = true
+use_container = false
+
+[default.deploy.parameters]
+stack_name = "ghost-dev"
+region = "eu-west-1"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "ghost"
+confirm_changeset = true
+parameter_overrides = "Env=dev"
+
+[prod.deploy.parameters]
+stack_name = "ghost-prod"
+region = "eu-west-1"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "ghost"
+confirm_changeset = true
+parameter_overrides = "Env=prod"

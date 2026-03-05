@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Ghost - AI Social Twin
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Layers:
+      - !Ref GhostCommonLayer
+    Environment:
+      Variables:
+        ENV: !Ref Env
+        LOG_LEVEL: INFO
+    Tags:
+      Project: ghost
+      Env: !Ref Env
+
+Resources:
+
+  # ─── SQS ──────────────────────────────────────────────────────────────────
+  GhostDelayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-delay-queue-${Env}
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 3600
+      Tags:
+        - Key: Project
+          Value: ghost
+        - Key: Env
+          Value: !Ref Env
+
+  # ─── SNS ──────────────────────────────────────────────────────────────────
+  GhostEscalationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ghost-escalations-${Env}
+      Tags:
+        - Key: Project
+          Value: ghost
+        - Key: Env
+          Value: !Ref Env
+
+  # ─── Lambda Layer ──────────────────────────────────────────────────────────
+  GhostCommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub ghost-common-${Env}
+      ContentUri: layers/ghost_common/
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: makefile
+      # Replace with your real values
+
+  # ─── API Gateway ───────────────────────────────────────────────────────────
+  GhostApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ghost-api-${Env}
+      StageName: !Ref Env
+      TracingEnabled: true
+  # ─── Lambda Functions ──────────────────────────────────────────────────────
+
+  GhostWebhookReceiver:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-webhook-receiver-${Env}
+      CodeUri: functions/webhook_receiver/
+      Handler: handler.lambda_handler
+      Timeout: 10
+      Events:
+        WebhookPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /webhook
+            Method: POST
+        WebhookGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /webhook
+            Method: GET
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-orchestrator-${Env}
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostOrchestrator:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-orchestrator-${Env}
+      CodeUri: functions/orchestrator/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      Environment:
+        Variables:
+          ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource:
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-mood-engine-${Env}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-timing-engine-${Env}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-escalation-detector-${Env}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-response-generator-${Env}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-memory-retriever-${Env}
+                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt GhostDelayQueue.Arn
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref GhostEscalationsTopic
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostMoodEngine:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-mood-engine-${Env}
+      CodeUri: functions/mood_engine/
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostTimingEngine:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-timing-engine-${Env}
+      CodeUri: functions/timing_engine/
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostEscalationDetector:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-escalation-detector-${Env}
+      CodeUri: functions/escalation_detector/
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostResponseGenerator:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-response-generator-${Env}
+      CodeUri: functions/response_generator/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostMemoryRetriever:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-memory-retriever-${Env}
+      CodeUri: functions/memory_retriever/
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostWhatsappSender:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-whatsapp-sender-${Env}
+      CodeUri: functions/whatsapp_sender/
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostTelegramBot:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-telegram-bot-${Env}
+      CodeUri: functions/telegram_bot/
+      Handler: handler.lambda_handler
+      Events:
+        EscalationSNS:
+          Type: SNS
+          Properties:
+            Topic: !Ref GhostEscalationsTopic
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+Outputs:
+  WebhookUrl:
+    Description: WhatsApp Webhook URL
+    Value: !Sub https://${GhostApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/webhook
+
+  DelayQueueUrl:
+    Description: SQS Delay Queue URL
+    Value: !Ref GhostDelayQueue
+
+  EscalationsTopicArn:
+    Description: SNS Escalations Topic ARN
+    Value: !Ref GhostEscalationsTopic
