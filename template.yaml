@@ -114,6 +114,13 @@ Resources:
       Environment:
         Variables:
           ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
+          DELAY_QUEUE_URL: !Ref GhostDelayQueue
+      Events:
+        DelayQueueTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt GhostDelayQueue.Arn
+            BatchSize: 1
       Policies:
         - Statement:
             - Effect: Allow

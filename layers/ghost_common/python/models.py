@@ -126,6 +126,7 @@ class InboundWhatsAppMessage(BaseModel):
 class OrchestratorEvent(BaseModel):
     """Top-level event envelope sent async to the orchestrator Lambda."""
     inbound_message: InboundWhatsAppMessage
+    is_delayed: bool = False  # True when re-invoked from the SQS delay queue
 
 
 class MoodEngineRequest(BaseModel):

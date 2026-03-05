@@ -42,6 +42,7 @@ logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 _lambda_client: Any = None
 _sns_client: Any = None
+_sqs_client: Any = None
 
 
 def _get_lambda_client():
@@ -58,12 +59,29 @@ def _get_sns_client():
     return _sns_client
 
 
+def _get_sqs_client():
+    global _sqs_client
+    if _sqs_client is None:
+        _sqs_client = boto3.client("sqs")
+    return _sqs_client
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def lambda_handler(event: dict, context: Any) -> None:
-    logger.info(json.dumps({"event": "orchestrator_invoked"}))
+    # SQS re-invocation (delayed message firing)
+    if "Records" in event:
+        for record in event["Records"]:
+            body = json.loads(record["body"])
+            _process(OrchestratorEvent(**body))
+        return
 
-    orch_event = OrchestratorEvent(**event)
+    _process(OrchestratorEvent(**event))
+
+
+def _process(orch_event: OrchestratorEvent) -> None:
+    logger.info(json.dumps({"event": "orchestrator_invoked", "is_delayed": orch_event.is_delayed}))
+
     inbound = orch_event.inbound_message
     env = os.environ.get("ENV", "dev")
 
@@ -97,26 +115,22 @@ def lambda_handler(event: dict, context: Any) -> None:
     mood = MoodEngineResponse(**mood_raw).mood_state
 
     # ── 2. Timing engine ───────────────────────────────────────────────────────
-    timing_raw = _invoke_sync(
-        f"ghost-timing-engine-{env}",
-        TimingEngineRequest(
-            contact_phone=inbound.phone_number,
-            conversation_id=conversation.id,
-            mood_state=mood,
-            last_message_at=conversation.last_message_at,
-        ).model_dump(mode="json"),
-    )
-    timing = TimingEngineResponse(**timing_raw)
-
-    if not timing.reply_now:
-        logger.info(
-            json.dumps({
-                "event": "reply_deferred",
-                "delay_seconds": timing.delay_seconds,
-                "reason": timing.reasoning,
-            })
+    # Skip timing on delayed re-invocations — we already waited.
+    if not orch_event.is_delayed:
+        timing_raw = _invoke_sync(
+            f"ghost-timing-engine-{env}",
+            TimingEngineRequest(
+                contact_phone=inbound.phone_number,
+                conversation_id=conversation.id,
+                mood_state=mood,
+                last_message_at=conversation.last_message_at,
+            ).model_dump(mode="json"),
         )
-        return
+        timing = TimingEngineResponse(**timing_raw)
+
+        if not timing.reply_now:
+            _enqueue_delay(orch_event, timing.delay_seconds, timing.reasoning)
+            return
 
     # ── 3. Escalation detector ─────────────────────────────────────────────────
     esc_raw = _invoke_sync(
@@ -298,6 +312,24 @@ def _log_message(conversation_id: str, role: MessageRole, content: str) -> Messa
 
 
 # ─── Downstream invocations ───────────────────────────────────────────────────
+
+def _enqueue_delay(orch_event: OrchestratorEvent, delay_seconds: int, reason: str) -> None:
+    """Put the event back on the SQS delay queue. Fires the orchestrator again after the delay."""
+    queue_url = os.environ.get("DELAY_QUEUE_URL", "")
+    delayed_event = orch_event.model_copy(update={"is_delayed": True})
+    _get_sqs_client().send_message(
+        QueueUrl=queue_url,
+        MessageBody=delayed_event.model_dump_json(),
+        DelaySeconds=min(delay_seconds, 900),
+    )
+    logger.info(
+        json.dumps({
+            "event": "reply_enqueued",
+            "delay_seconds": delay_seconds,
+            "reason": reason,
+        })
+    )
+
 
 def _invoke_sync(function_name: str, payload: dict) -> dict:
     """Invoke a Lambda synchronously and return the parsed response."""
