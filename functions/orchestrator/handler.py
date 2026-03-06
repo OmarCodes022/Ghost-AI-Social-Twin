@@ -187,12 +187,15 @@ def _process(orch_event: OrchestratorEvent) -> None:
             message_id=agent_msg.id,
         )
     else:
-        _invoke_whatsapp_sender(
-            env=env,
-            to_phone_number=inbound.phone_number,
-            message=rg.reply,
-            message_id=agent_msg.id,
-        )
+        # Split multi-part replies (newline-separated) and send each as a separate message
+        parts = [p for p in rg.reply.split("\n") if p.strip()]
+        for i, part in enumerate(parts):
+            _invoke_whatsapp_sender(
+                env=env,
+                to_phone_number=inbound.phone_number,
+                message=part.strip(),
+                message_id=agent_msg.id if i == 0 else None,
+            )
 
 
 # ─── DB helpers ───────────────────────────────────────────────────────────────
