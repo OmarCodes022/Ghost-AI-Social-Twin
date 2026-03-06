@@ -117,6 +117,17 @@ show:
 contacts:
 	@.venv/bin/python scripts/admin.py contacts
 
+# Ingest a WhatsApp exported .txt file for a contact
+# Usage: make ingest FILE=exports/alice.txt PHONE=33744746977 NAME="Alice"
+# Optional: MY_NAME="Omar" (default), DRY_RUN=1 to preview without writing
+ingest:
+	@.venv/bin/python scripts/ingest_whatsapp.py \
+		--file "$(FILE)" \
+		--phone "$(PHONE)" \
+		$(if $(NAME),--name "$(NAME)") \
+		$(if $(MY_NAME),--my-name "$(MY_NAME)") \
+		$(if $(DRY_RUN),--dry-run)
+
 # Run unit tests
 test:
 	python -m pytest tests/unit/ -v
