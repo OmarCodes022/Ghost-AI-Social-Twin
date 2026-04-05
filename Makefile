@@ -1,7 +1,7 @@
 REGION ?= eu-west-1
 ENV    ?= dev
 
-.PHONY: build deploy-dev deploy-prod migrate layer-install test update db contact remember me show contacts telegram-webhook
+.PHONY: build deploy-dev deploy-prod migrate layer-install test update db contact remember me show contacts telegram-webhook mood send proactive dashboard dashboard-install
 
 # Build all Lambda functions and layers
 build:
@@ -54,16 +54,15 @@ layer-install:
 		--python-version 3.12 \
 		--upgrade
 
-# Fast code push — zips each handler.py and updates Lambda directly (no SAM/CloudFormation).
-# Use this when only function handlers changed.
-# Use deploy-dev when layer code (models.py, db.py, etc.) or template.yaml changed.
+# Fast code push — zips all .py files in each function dir and updates Lambda directly.
+# Use this when only function code changed (no layer or template.yaml changes).
 update:
 	@echo "Pushing handler code to all ghost-*-$(ENV) functions..."
 	@for dir in functions/*/; do \
 		fn=$$(basename $$dir); \
 		fn_name=ghost-$$(echo $$fn | tr '_' '-')-$(ENV); \
 		echo "  → $$fn_name"; \
-		zip -jq /tmp/ghost_$$fn.zip $$dir/handler.py && \
+		zip -jq /tmp/ghost_$$fn.zip $$dir/*.py && \
 		aws lambda update-function-code \
 			--function-name $$fn_name \
 			--zip-file fileb:///tmp/ghost_$$fn.zip \
@@ -90,23 +89,29 @@ db:
 	PGSSLMODE=require psql "$$DSN"
 
 # ── Ghost admin ────────────────────────────────────────────────────────────────
-# Set a contact's name, tier, notes (any combo)
-# Usage: make contact PHONE=33744746977 NAME="Alice" TIER=1 NOTES="works at Google"
+# Set a contact's name, tier, notes, preferred language, persona (any combo)
+# Usage: make contact PHONE=33744746977 NAME="Alice" TIER=1 NOTES="works at Google" LANG="French"
+# Usage: make contact PHONE=33744746977 PERSONA=lea PERSONA_NAME="Léa"
 contact:
 	@.venv/bin/python scripts/admin.py contact --phone "$(PHONE)" \
 		$(if $(NAME),--name "$(NAME)") \
 		$(if $(TIER),--tier "$(TIER)") \
-		$(if $(NOTES),--notes "$(NOTES)")
+		$(if $(NOTES),--notes "$(NOTES)") \
+		$(if $(LANG),--lang "$(LANG)") \
+		$(if $(PERSONA),--persona "$(PERSONA)") \
+		$(if $(PERSONA_NAME),--persona-name "$(PERSONA_NAME)")
 
 # Add a memory about a contact
 # Usage: make remember PHONE=33744746977 TEXT="Has a dog called Max"
 remember:
 	@.venv/bin/python scripts/admin.py remember --phone "$(PHONE)" --text "$(TEXT)"
 
-# Add identity data about yourself (used in every response prompt)
+# Add identity data about yourself or a persona (used in every response prompt)
 # Usage: make me TEXT="I hate small talk. I never use exclamation marks."
+# Usage: make me TEXT="Je suis une fille de 22 ans..." PERSONA=lea
 me:
-	@.venv/bin/python scripts/admin.py me --text "$(TEXT)"
+	@.venv/bin/python scripts/admin.py me --text "$(TEXT)" \
+		$(if $(PERSONA),--persona "$(PERSONA)")
 
 # Show everything about a contact
 # Usage: make show PHONE=33744746977
@@ -116,6 +121,31 @@ show:
 # List all contacts
 contacts:
 	@.venv/bin/python scripts/admin.py contacts
+
+# Manually send a WhatsApp message as Ghost (logged to DB)
+# Usage: make send PHONE=33744746977 TEXT="yo"
+# Usage: make send PHONE=33744746977 TEXT="yo\nca va ?"
+send:
+	@.venv/bin/python scripts/admin.py send --phone "$(PHONE)" --text "$(TEXT)"
+
+# Send a proactive check-in to one or more contacts (runs locally, invokes whatsapp-sender)
+# Usage: make proactive PHONES=33652469989,33664970571
+# Usage: make proactive PHONES=33652469989 DRY_RUN=1
+proactive:
+	@.venv/bin/python scripts/admin.py proactive \
+		--phones "$(PHONES)" \
+		$(if $(DRY_RUN),--dry-run)
+
+# Show or update Ghost's persistent mood state
+# Usage: make mood
+# Usage: make mood NOTES="bad week" AVAILABILITY=light ENERGY=0.4
+# Usage: make mood RESET=1
+mood:
+	@.venv/bin/python scripts/admin.py mood \
+		$(if $(NOTES),--notes "$(NOTES)") \
+		$(if $(AVAILABILITY),--availability "$(AVAILABILITY)") \
+		$(if $(ENERGY),--energy "$(ENERGY)") \
+		$(if $(RESET),--reset)
 
 # Ingest a WhatsApp exported .txt file for a contact
 # Usage: make ingest FILE=exports/alice.txt PHONE=33744746977 NAME="Alice"
@@ -127,6 +157,19 @@ ingest:
 		$(if $(NAME),--name "$(NAME)") \
 		$(if $(MY_NAME),--my-name "$(MY_NAME)") \
 		$(if $(DRY_RUN),--dry-run)
+
+# Install dashboard npm dependencies
+dashboard-install:
+	cd dashboard && npm install
+
+# Start the Next.js dashboard dev server (fetches DATABASE_URL from SSM)
+dashboard:
+	@cd dashboard && \
+	DATABASE_URL=$$(aws ssm get-parameter \
+		--name /ghost/$(ENV)/db/connection_string \
+		--with-decryption --query Parameter.Value \
+		--output text --region $(REGION)) \
+	npm run dev
 
 # Run unit tests
 test:

@@ -110,7 +110,7 @@ Resources:
       FunctionName: !Sub ghost-orchestrator-${Env}
       CodeUri: functions/orchestrator/
       Handler: handler.lambda_handler
-      Timeout: 60
+      Timeout: 120
       Environment:
         Variables:
           ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
@@ -126,11 +126,6 @@ Resources:
             - Effect: Allow
               Action: lambda:InvokeFunction
               Resource:
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-mood-engine-${Env}
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-timing-engine-${Env}
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-escalation-detector-${Env}
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-response-generator-${Env}
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-memory-retriever-${Env}
                 - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
         - Statement:
             - Effect: Allow
@@ -145,73 +140,13 @@ Resources:
               Action: ssm:GetParameter
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
 
-  GhostMoodEngine:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-mood-engine-${Env}
-      CodeUri: functions/mood_engine/
-      Handler: handler.lambda_handler
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-
-  GhostTimingEngine:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-timing-engine-${Env}
-      CodeUri: functions/timing_engine/
-      Handler: handler.lambda_handler
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-
-  GhostEscalationDetector:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-escalation-detector-${Env}
-      CodeUri: functions/escalation_detector/
-      Handler: handler.lambda_handler
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-
-  GhostResponseGenerator:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-response-generator-${Env}
-      CodeUri: functions/response_generator/
-      Handler: handler.lambda_handler
-      Timeout: 120
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-
-  GhostMemoryRetriever:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-memory-retriever-${Env}
-      CodeUri: functions/memory_retriever/
-      Handler: handler.lambda_handler
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-
   GhostWhatsappSender:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ghost-whatsapp-sender-${Env}
       CodeUri: functions/whatsapp_sender/
       Handler: handler.lambda_handler
+      Timeout: 60
       Policies:
         - Statement:
             - Effect: Allow
@@ -241,6 +176,36 @@ Resources:
             - Effect: Allow
               Action: lambda:InvokeFunction
               Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+
+  GhostProactiveEngine:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-proactive-engine-${Env}
+      CodeUri: functions/proactive_engine/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      Environment:
+        Variables:
+          ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
+      Events:
+        ProactiveSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(2 hours)
+            Enabled: true
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref GhostEscalationsTopic
         - Statement:
             - Effect: Allow
               Action: ssm:GetParameter

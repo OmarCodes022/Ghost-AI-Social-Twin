@@ -299,7 +299,11 @@ def _answer_callback(callback_id: str, text: str = "") -> None:
 
 
 def _remove_buttons(tg_message_id: int, suffix: str = "") -> None:
-    """Strip the inline keyboard from a sent message and optionally append a status suffix."""
+    """Remove the inline keyboard from a message, keeping its original text intact.
+
+    Sends the status as a new message below rather than overwriting the original,
+    so the full escalation details (contact, message, proposed reply, reason) stay visible.
+    """
     chat_id = _get_chat_id()
     try:
         _telegram("editMessageReplyMarkup", {
@@ -308,11 +312,8 @@ def _remove_buttons(tg_message_id: int, suffix: str = "") -> None:
             "reply_markup": json.dumps({"inline_keyboard": []}),
         })
         if suffix:
-            # Append status to message text — requires fetching current text via editMessageText.
-            # We do this in a best-effort way; if it fails the buttons are already removed.
-            _telegram("editMessageText", {
+            _telegram("sendMessage", {
                 "chat_id": chat_id,
-                "message_id": tg_message_id,
                 "text": suffix.strip(),
                 "parse_mode": "Markdown",
             })

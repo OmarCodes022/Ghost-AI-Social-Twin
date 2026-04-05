@@ -91,6 +91,17 @@ class MoodState(BaseModel):
     signals: dict[str, Any] = Field(default_factory=dict)
 
 
+class GhostState(BaseModel):
+    """Persistent mood/availability state. Single row in ghost_state table."""
+    id: int = 1
+    energy: float = 0.6
+    social_battery: float = 1.0   # depletes across conversations, resets overnight
+    emotional_load: float = 0.0   # accumulates from heavy conversations
+    availability: str = "deep"    # deep / light / minimal
+    notes: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
 class KnowledgeChunk(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     category: KnowledgeCategory
@@ -129,73 +140,15 @@ class OrchestratorEvent(BaseModel):
     is_delayed: bool = False  # True when re-invoked from the SQS delay queue
 
 
-class MoodEngineRequest(BaseModel):
-    contact_phone: str
-    conversation_id: str
-    recent_messages: list[dict[str, Any]] = Field(default_factory=list)
-    contact_context: dict[str, Any] = Field(default_factory=dict)
-
-
-class MoodEngineResponse(BaseModel):
-    mood_state: MoodState
-    signals_used: list[str] = Field(default_factory=list)
-
-
-class TimingEngineRequest(BaseModel):
-    contact_phone: str
-    conversation_id: str
-    mood_state: MoodState
-    last_message_at: datetime
-
-
-class TimingEngineResponse(BaseModel):
-    reply_now: bool
-    delay_seconds: int = 0
-    reasoning: str = ""
-
-
-class EscalationDetectorRequest(BaseModel):
-    contact_phone: str
-    message_content: str
-    conversation_id: str
-    message_id: str
-
-
-class EscalationDetectorResponse(BaseModel):
-    is_escalation: bool
-    reason: Optional[str] = None
-    confidence: float = 0.0
-
-
-class MemoryRetrieverRequest(BaseModel):
-    contact_phone: str
-    query: str
-    limit: int = 5
-
-
-class MemoryRetrieverResponse(BaseModel):
-    chunks: list[dict[str, Any]] = Field(default_factory=list)
-
-
-class ResponseGeneratorRequest(BaseModel):
-    contact_phone: str
-    conversation_id: str
-    inbound_message: str
-    mood_state: MoodState
-    memory_chunks: list[dict[str, Any]] = Field(default_factory=list)
-    voice_profile: Optional[dict[str, Any]] = None
-
-
-class ResponseGeneratorResponse(BaseModel):
-    reply: str
-    confidence_score: float = 1.0
-
 
 class WhatsAppSenderRequest(BaseModel):
     """Payload sent to the whatsapp_sender Lambda."""
     to_phone_number: str
     message: str
     message_id: Optional[str] = None
+    part_index: int = 0  # position in multi-part reply (0 = first)
+    inbound_message_id: Optional[str] = None  # inbound WhatsApp msg ID for typing indicator
+    reply_to_message_id: Optional[str] = None  # wamid to quote (reply bubble, first part only)
 
 
 class TelegramEscalationEvent(BaseModel):
