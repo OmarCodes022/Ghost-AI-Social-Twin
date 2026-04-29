@@ -1,7 +1,8 @@
 REGION ?= eu-west-1
 ENV    ?= dev
+PYTHON ?= .venv/bin/python
 
-.PHONY: build deploy-dev deploy-prod migrate layer-install test update db contact remember me show contacts telegram-webhook mood send proactive dashboard dashboard-install
+.PHONY: build deploy-dev deploy-prod migrate layer-install test db-test update db contact remember me show contacts telegram-webhook mood send proactive dashboard dashboard-install
 
 # Build all Lambda functions and layers
 build:
@@ -171,6 +172,10 @@ dashboard:
 		--output text --region $(REGION)) \
 	npm run dev
 
-# Run unit tests
+# Run tests
 test:
-	python -m pytest tests/unit/ -v
+	$(PYTHON) -m unittest discover -s tests/unit -p 'test_*.py'
+
+# Live DB connectivity check (requires AWS credentials + dev SSM access)
+db-test:
+	$(PYTHON) tests/test_db_connectivity.py

@@ -58,7 +58,8 @@ def _handle_verification(event: dict) -> dict:
     token = params.get("hub.verify_token", "")
     challenge = params.get("hub.challenge", "")
 
-    expected_token = get_parameter("/ghost/whatsapp/verify_token")
+    env = os.environ.get("ENV", "dev")
+    expected_token = get_parameter(f"/ghost/{env}/whatsapp/verify_token")
 
     if mode == "subscribe" and token == expected_token:
         logger.info(json.dumps({"event": "webhook_verified"}))

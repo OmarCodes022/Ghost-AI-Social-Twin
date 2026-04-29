@@ -17,7 +17,6 @@ interface TraceBlockProps {
 }
 
 const EMOJI: Record<string, string> = {
-  search_memories: "🔍",
   get_history: "📖",
   save_memory: "💾",
   get_contact_profile: "👤",
@@ -30,7 +29,6 @@ const EMOJI: Record<string, string> = {
 };
 
 function fmtInput(tool: string, inp: Record<string, unknown>): string {
-  if (tool === "search_memories") return `"${String(inp.query ?? "").slice(0, 45)}"`;
   if (tool === "get_history") return `limit=${inp.limit ?? 20}`;
   if (tool === "save_memory") return `"${String(inp.content ?? "").slice(0, 35)}…", ${inp.category}`;
   if (tool === "update_contact_profile") return `${inp.field}="${inp.value}"`;

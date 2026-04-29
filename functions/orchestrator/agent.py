@@ -58,7 +58,7 @@ def _get_anthropic_model() -> AnthropicModel:
         env = os.environ.get("ENV", "dev")
         api_key = get_parameter(f"/ghost/{env}/anthropic/api_key")
         _anthropic_model = AnthropicModel(
-            client_params={"api_key": api_key},
+            client_args={"api_key": api_key},
             model_id=_MODEL,
             max_tokens=_MAX_TOKENS,
         )
@@ -292,7 +292,8 @@ def _build_system_prompt(
         "## Formatting rules (non-negotiable)",
         "Split your reply into short natural messages using a newline between each part.",
         "Lowercase only. Minimal punctuation. No preamble. Output ONLY the message text.",
-        "LANGUAGE: Reply in the exact same language as the last message you received.",
+        "LANGUAGE: Infer the language of the last user message, even if it is only a short greeting or fragment, and reply in that same language.",
+        "Do not let the language of identity notes, memories, or examples override the user's latest language.",
     ]
 
     return "\n".join(lines)
@@ -332,7 +333,13 @@ def run_agent_loop(
     # If RAG returned no identity chunks (embeddings not seeded yet), use pre-fetched fallback
     effective_identity = rag_identity if rag_identity else identity_chunks
 
-    system_prompt = _build_system_prompt(contact, ghost_state, effective_identity, rag_contact, is_delayed)
+    system_prompt = _build_system_prompt(
+        contact,
+        ghost_state,
+        effective_identity,
+        rag_contact,
+        is_delayed,
+    )
     initial_message = _build_initial_message(burst)
 
     logger.info(json.dumps({
