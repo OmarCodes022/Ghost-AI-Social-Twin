@@ -6,7 +6,7 @@ This repo is Ghost, an AWS SAM WhatsApp agent that replies as the owner with mem
 
 - `functions/webhook_receiver/handler.py` handles Meta webhook verification and inbound WhatsApp text payloads, then invokes `ghost-orchestrator-{env}` asynchronously.
 - `functions/orchestrator/handler.py` is the core pipeline: dedupe, contact/conversation loading, burst collection, agent execution, delay/escalation/reply dispatch, trace logging.
-- `functions/orchestrator/agent.py` runs a Strands `Agent` with Claude `claude-sonnet-4-20250514`.
+- `functions/orchestrator/agent.py` runs a Strands `Agent` with Bedrock Claude `anthropic.claude-sonnet-4-20250514-v1:0`.
 - RAG is pre-fetched before the agent call: incoming burst text is embedded with Titan Text Embeddings v2, falling back to Voyage, then searched against `knowledge_chunks.embedding` via pgvector.
 - `functions/orchestrator/tools.py` contains the DB-facing tool handler functions. Strands `@tool` wrappers live in `agent.py`.
 - `functions/telegram_bot/handler.py` handles SNS escalations and Telegram Send/Edit/Skip callbacks.
@@ -44,8 +44,7 @@ SSM parameters are environment-scoped:
 /ghost/{env}/whatsapp/token
 /ghost/{env}/whatsapp/phone_number_id
 /ghost/{env}/whatsapp/verify_token
-/ghost/{env}/anthropic/api_key
-/ghost/{env}/voyage/api_key
+/ghost/{env}/voyage/api_key          ← only needed if Titan Bedrock access is blocked
 /ghost/{env}/telegram/bot_token
 /ghost/{env}/telegram/chat_id
 /ghost/{env}/db/connection_string
@@ -55,6 +54,7 @@ SSM parameters are environment-scoped:
 
 - Do not reintroduce `search_memories`; semantic memory retrieval is now preloaded in `agent.py` through pgvector.
 - New memories should be embedded when saved so they participate in future RAG.
-- Keep Lambda layer dependencies in `layers/ghost_common/requirements.txt`.
+- Keep Lambda layer dependencies in `layers/ghost_common/requirements.txt` (`strands-agents` is required there, not just locally).
+- The orchestrator uses `BedrockModel` (IAM auth) for Claude — no Anthropic API key needed at Lambda runtime.
 - Be careful with the dirty worktree. Several files may already contain local in-progress changes.
 - The dashboard trace UI reads `agent_traces.tool_calls`; keep tool call names and summaries stable when possible.

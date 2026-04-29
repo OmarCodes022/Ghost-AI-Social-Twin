@@ -45,7 +45,7 @@ proactive_engine        — scheduled every 2h, sends follow-ups autonomously
 |---|---|
 | Runtime | Python 3.12 |
 | Compute | AWS Lambda |
-| Agent | Strands Agents + Claude `claude-sonnet-4-20250514` |
+| Agent | Strands Agents + Bedrock Claude `anthropic.claude-sonnet-4-20250514-v1:0` |
 | Embeddings | Amazon Titan Text Embeddings v2, with Voyage fallback |
 | Database | RDS PostgreSQL 15 + pgvector |
 | Async queue | SQS (up to 15 min delay) |

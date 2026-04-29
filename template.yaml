@@ -33,7 +33,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-delay-queue-${Env}
-      VisibilityTimeout: 60
+      VisibilityTimeout: 180
       MessageRetentionPeriod: 3600
       Tags:
         - Key: Project
@@ -141,8 +141,10 @@ Resources:
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
         - Statement:
             - Effect: Allow
-              Action: bedrock:InvokeModel
-              Resource: !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
 
   GhostWhatsappSender:
     Type: AWS::Serverless::Function

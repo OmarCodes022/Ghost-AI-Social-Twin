@@ -78,10 +78,11 @@ def embed(text: str) -> list[float] | None:
         )
         return json.loads(resp["body"].read())["embedding"]
     except Exception as exc:
-        if "AccessDenied" in type(exc).__name__ or "AccessDenied" in str(exc):
-            logger.warning(json.dumps({"event": "titan_access_denied", "fallback": "voyage"}))
+        err = str(exc)
+        if "AccessDenied" in type(exc).__name__ or "AccessDenied" in err or "ThrottlingException" in err:
+            logger.warning(json.dumps({"event": "titan_unavailable", "fallback": "voyage", "reason": err[:120]}))
             return _embed_voyage(text)
-        logger.warning(json.dumps({"event": "embed_failed", "error": str(exc)}))
+        logger.warning(json.dumps({"event": "embed_failed", "error": err}))
         return None
 
 
