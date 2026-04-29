@@ -9,7 +9,7 @@ export default async function ContactsPage() {
            COUNT(kc.id)::int AS memory_count
     FROM contacts c
     LEFT JOIN knowledge_chunks kc ON kc.contact_phone = c.phone_number
-    GROUP BY c.phone_number
+    GROUP BY c.phone_number, c.name, c.relationship_tier, c.last_interaction
     ORDER BY c.last_interaction DESC NULLS LAST
   `;
 
