@@ -10,6 +10,7 @@ Usage:
   python scripts/admin.py mood [--notes "bad week"] [--availability minimal] [--energy 0.4] [--reset]
 """
 import argparse
+import json
 import sys
 
 import boto3
@@ -26,6 +27,22 @@ def get_conn():
         Name=f"/ghost/{ENV}/db/connection_string", WithDecryption=True
     )["Parameter"]["Value"]
     return psycopg2.connect(dsn, sslmode="require")
+
+
+def _embed_text(text: str) -> list[float] | None:
+    """Generate embedding via Bedrock Titan v2. Silently skips if unavailable."""
+    try:
+        br = boto3.client("bedrock-runtime", region_name=REGION)
+        resp = br.invoke_model(
+            modelId="amazon.titan-embed-text-v2:0",
+            body=json.dumps({"inputText": text[:8192]}),
+            contentType="application/json",
+            accept="application/json",
+        )
+        return json.loads(resp["body"].read())["embedding"]
+    except Exception as exc:
+        print(f"  ⚠ embedding skipped ({exc})")
+        return None
 
 
 # ── contact ────────────────────────────────────────────────────────────────────
@@ -107,10 +124,18 @@ def cmd_remember(args):
     )
     chunk_id = cur.fetchone()["id"]
     conn.commit()
+
+    embedding = _embed_text(args.text)
+    if embedding:
+        cur2 = conn.cursor()
+        cur2.execute("UPDATE knowledge_chunks SET embedding = %s::vector WHERE id = %s", (str(embedding), chunk_id))
+        conn.commit()
+        cur2.close()
+
     cur.close()
     conn.close()
 
-    print(f"✓ Memory saved for {args.phone}  (id: {chunk_id})")
+    print(f"✓ Memory saved for {args.phone}  (id: {chunk_id}){' + embedded' if embedding else ''}")
     print(f'  "{args.text}"')
 
 
@@ -132,10 +157,18 @@ def cmd_me(args):
     )
     chunk_id = cur.fetchone()["id"]
     conn.commit()
+
+    embedding = _embed_text(args.text)
+    if embedding:
+        cur2 = conn.cursor()
+        cur2.execute("UPDATE knowledge_chunks SET embedding = %s::vector WHERE id = %s", (str(embedding), chunk_id))
+        conn.commit()
+        cur2.close()
+
     cur.close()
     conn.close()
 
-    print(f"✓ Identity chunk saved  (id: {chunk_id})  [persona: {persona}]")
+    print(f"✓ Identity chunk saved  (id: {chunk_id})  [persona: {persona}]{' + embedded' if embedding else ''}")
     print(f'  "{args.text}"')
 
 
