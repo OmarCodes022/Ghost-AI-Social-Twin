@@ -38,3 +38,8 @@ secrets.json
 # Next.js
 dashboard/.next/
 dashboard/node_modules/
+
+# Local-only, not pushed
+.claude/
+CLAUDE.md
+dashboard/
