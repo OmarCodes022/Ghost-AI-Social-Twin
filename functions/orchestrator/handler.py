@@ -22,7 +22,7 @@ from db_helpers import (
     save_agent_trace,
 )
 from debug import send_dev_debug
-from dispatch import enqueue_delay, invoke_whatsapp_sender, publish_escalation
+from dispatch import enqueue_delay, invoke_whatsapp_sender
 from models import MessageRole, OrchestratorEvent
 
 logger = logging.getLogger(__name__)
@@ -41,12 +41,19 @@ def lambda_handler(event: dict, context: Any) -> None:
 
 # ─── Core pipeline ────────────────────────────────────────────────────────────
 
+_BLOCKED = {"201222540825"}
+
+
 def _process(orch_event: OrchestratorEvent) -> None:
     logger.info(json.dumps({"event": "orchestrator_invoked", "is_delayed": orch_event.is_delayed}))
 
     inbound = orch_event.inbound_message
     env = os.environ.get("ENV", "dev")
     is_dev = env == "dev"
+
+    if inbound.phone_number in _BLOCKED:
+        logger.info(json.dumps({"event": "blocked_number_skipped", "phone": inbound.phone_number}))
+        return
 
     if already_processed(inbound.message_id):
         logger.info(json.dumps({"event": "duplicate_message_skipped", "wamid": inbound.message_id}))
@@ -99,19 +106,8 @@ def _process(orch_event: OrchestratorEvent) -> None:
 
     # ── Escalate ──────────────────────────────────────────────────────────────
     if result["action"] == "escalate":
-        agent_msg = log_message(conversation.id, MessageRole.agent, result["draft_reply"])
-        save_agent_trace(agent_msg.id, conversation.id, inbound.phone_number, result)
-        if acquire_reply_lock(conversation.id):
-            publish_escalation(
-                contact=contact,
-                original_message=inbound.content,
-                proposed_reply=result["draft_reply"],
-                reason=result["reason"],
-                message_id=agent_msg.id,
-            )
-        if is_dev:
-            send_dev_debug(env, contact, inbound.content, ghost_state, result, burst, escalated=True)
-        return
+        # Escalation disabled — treat draft_reply as a normal reply
+        result = {**result, "action": "reply", "reply": result.get("draft_reply", "")}
 
     # ── Reply ─────────────────────────────────────────────────────────────────
     reply = result.get("reply", "")

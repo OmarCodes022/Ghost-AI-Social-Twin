@@ -225,17 +225,23 @@ def ingest(
 ) -> int:
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    # Upsert contact name if not already set
-    cur.execute(
-        """
-        INSERT INTO contacts (phone_number, name, relationship_tier, last_interaction, created_at)
-        VALUES (%s, %s, 3, NOW(), NOW())
-        ON CONFLICT (phone_number) DO UPDATE SET
-            name         = COALESCE(contacts.name, EXCLUDED.name),
-            voice_profile = %s
-        """,
-        (phone, contact_name, json.dumps(voice_profile)),
-    )
+    # Update contact name and voice_profile if row exists, otherwise insert
+    cur.execute("SELECT id FROM contacts WHERE phone_number = %s", (phone,))
+    row = cur.fetchone()
+    if row:
+        cur.execute(
+            "UPDATE contacts SET name = COALESCE(name, %s), voice_profile = %s WHERE phone_number = %s",
+            (contact_name, json.dumps(voice_profile), phone),
+        )
+    else:
+        cur.execute(
+            "INSERT INTO contacts (phone_number, name, relationship_tier, last_interaction, created_at) VALUES (%s, %s, 3, NOW(), NOW())",
+            (phone, contact_name),
+        )
+        cur.execute(
+            "UPDATE contacts SET voice_profile = %s WHERE phone_number = %s",
+            (json.dumps(voice_profile), phone),
+        )
 
     inserted = 0
     for chunk_text in chunks:
