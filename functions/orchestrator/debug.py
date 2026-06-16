@@ -9,7 +9,6 @@ from ssm import get_parameter
 logger = logging.getLogger(__name__)
 
 _TOOL_EMOJI = {
-    "search_memories": "🔍",
     "get_history": "📖",
     "save_memory": "💾",
     "get_contact_profile": "👤",
@@ -29,8 +28,6 @@ def _esc(text: str) -> str:
 
 
 def _format_tool_input(tool: str, inp: dict) -> str:
-    if tool == "search_memories":
-        return f'"{str(inp.get("query", ""))[:40]}"'
     if tool == "get_history":
         return f'limit={inp.get("limit", 20)}'
     if tool == "save_memory":
