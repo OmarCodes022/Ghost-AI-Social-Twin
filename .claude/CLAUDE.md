@@ -2,7 +2,7 @@
 
 ## Project Overview
 Fully autonomous WhatsApp agent that responds as a specific person.
-Per-contact memory, dynamic mood, timing intelligence, voice calibration,
+Per-contact memory (RAG via pgvector), dynamic mood, timing intelligence,
 escalation detection, Telegram side-channel for human override.
 
 ## Key Conventions
@@ -17,11 +17,9 @@ escalation detection, Telegram side-channel for human override.
 ```
 template.yaml               — SAM IaC (API GW, SQS, SNS, all Lambdas, Layer)
 samconfig.toml              — SAM CLI config (dev / prod stacks)
-Makefile                    — build, deploy-dev, deploy-prod, migrate, layer-install, update, db, contact, remember, me, show, contacts, telegram-webhook
-scripts/
-  admin.py                  — CLI: contact, remember, me, show, contacts subcommands
+Makefile                    — all commands (see below)
 layers/ghost_common/
-  requirements.txt          — psycopg2-binary, pydantic, requests, anthropic
+  requirements.txt          — psycopg2-binary, pydantic, requests, anthropic, strands-agents
   python/
     ssm.py                  — SSM loader with in-process cache
     db.py                   — psycopg2 connection pool + get_cursor() context mgr
@@ -29,136 +27,117 @@ layers/ghost_common/
     whatsapp.py             — Meta Cloud API client (send_text_message, mark_read)
 functions/
   webhook_receiver/         — GET /webhook verify + POST /webhook parse → invoke orch async
-  orchestrator/             — full pipeline: mood → timing → escalation → memory → response → send
-  whatsapp_sender/          — sends WhatsApp text via Meta Cloud API
-  telegram_bot/             — SNS escalation + /telegram webhook (Send/Edit/Skip callbacks)
-  mood_engine/              — signal-based mood vector (time, tier, velocity, weekday)
-  timing_engine/            — reply_now / delay_seconds with SQS enqueue
-  escalation_detector/      — Claude classifier (strict prompt, confidence >= 0.85 to trigger)
-  response_generator/       — Claude claude-sonnet-4-20250514 with full identity + memory prompt
-  memory_retriever/         — PostgreSQL full-text search (tsvector); Phase 2 → pgvector cosine
+  orchestrator/
+    handler.py              — entry point + _process pipeline (dedupe, burst, lock, dispatch)
+    agent.py                — Strands Agent + BedrockModel, embed(), RAG pre-fetch, @tool wrappers
+    tools.py                — DB-facing tool handler functions (called by @tool wrappers in agent.py)
+    db_helpers.py           — all DB ops: contact, conversation, message, trace, rag_search()
+    dispatch.py             — SQS / Lambda / SNS invocations
+    debug.py                — Telegram dev trace block
+  whatsapp_sender/          — sends via Meta Cloud API + typing simulation
+  telegram_bot/             — SNS escalation + Send/Edit/Skip callbacks
+  proactive_engine/         — scheduled follow-ups + check-ins
 migrations/
-  alembic.ini               — points script_location=. (migrations/)
-  env.py                    — reads DATABASE_URL env var for connection
-  versions/001_initial_schema.py — full schema + pgvector extension + IVFFlat index
-tests/unit/                 — placeholder
+  versions/001_initial_schema.py  — full schema + pgvector + IVFFlat index
+  versions/002_add_persona_to_knowledge_chunks.py
+  versions/003_add_whatsapp_message_id.py
+  versions/004_ghost_state.py     — persistent mood state table
+  versions/005_agent_traces.py    — per-reply agent loop trace table
+scripts/
+  admin.py                  — CLI: contact, remember, me, show, contacts, mood, send, proactive
+dashboard/                  — local Next.js debug UI (direct RDS connection)
+  app/page.tsx              — home: stats + ghost state + recent convos
+  app/conversations/[id]/page.tsx — messages + expandable agent traces
+  app/contacts/[phone]/page.tsx   — contact editor + memory manager
+  app/mood/page.tsx         — ghost state editor
 ```
+
+## How the Agent Works
+
+Each inbound message triggers:
+1. **Embed** incoming burst text → Titan Text Embeddings v2 via Bedrock (fallback: Voyage)
+2. **RAG search** — pgvector cosine `<=>` over `knowledge_chunks.embedding`, top-5 identity chunks + top-5 contact chunks
+3. **System prompt** built with: persona identity, contact memories, mood state, contact profile
+4. **Strands `Agent(model=BedrockModel(...), tools=[...])` runs** — Claude calls tools as needed, returns reply
+5. **Dispatch** — reply split on `\n`, each part sent as separate WhatsApp message
+
+**Embeddings are stored at write time**: `save_memory` tool and `make remember` / `make me` both call `embed()` and update `knowledge_chunks.embedding` immediately.
+
+## Agent Tools (9)
+
+| Tool | Purpose |
+|---|---|
+| `get_history` | Fetch recent conversation messages |
+| `save_memory` | Write a new knowledge_chunk + embed it |
+| `get_contact_profile` | Name, tier, voice_profile, notes |
+| `update_contact_profile` | Update name / tier / notes |
+| `get_mood_state` | Read ghost_state |
+| `update_mood` | Update energy / battery / load / availability |
+| `delay_reply` | Exit loop, re-invoke via SQS after N seconds |
+| `request_human_review` | Escalate to Telegram with draft |
+| `update_conversation_arc` | Mark conversation open / flowing / winding_down / dormant |
+
+`search_memories` does not exist — do not reintroduce it. Memory is pre-injected via RAG.
+
+## Models
+
+- **Claude**: `anthropic.claude-sonnet-4-20250514-v1:0` via Bedrock (`BedrockModel`) — IAM auth, no API key
+- **Embeddings**: `amazon.titan-embed-text-v2:0` via Bedrock, 1536 dims — matches `knowledge_chunks.embedding vector(1536)`
+- **Embedding fallback**: Voyage `voyage-multilingual-2` (1024 dims) if Titan returns AccessDenied
 
 ## SSM Parameter Paths
 ```
 /ghost/{env}/whatsapp/token
 /ghost/{env}/whatsapp/phone_number_id
 /ghost/{env}/whatsapp/verify_token
-/ghost/{env}/anthropic/api_key
+/ghost/{env}/voyage/api_key          ← only needed if Titan Bedrock access is blocked
 /ghost/{env}/telegram/bot_token
 /ghost/{env}/telegram/chat_id
 /ghost/{env}/db/connection_string
 ```
 
-## WhatsApp Token Management
-- Tokens expire every ~24 hours — update via:
-  ```bash
-  aws ssm put-parameter --name "/ghost/dev/whatsapp/token" --value "NEW_TOKEN" --type SecureString --overwrite --region eu-west-1
-  ```
-- After updating token, force Lambda cold starts to flush SSM in-process cache:
-  ```bash
-  for fn in ghost-webhook-receiver-dev ghost-orchestrator-dev ghost-whatsapp-sender-dev; do
-    aws lambda update-function-configuration --function-name $fn --region eu-west-1 --environment "Variables={RELOAD=$(date +%s)}"
-  done
-  ```
-- If Meta returns `API access blocked (code 200)`: check app status in Meta Developer Console, not just the token.
+## IAM: Orchestrator Lambda needs
+- `bedrock:InvokeModel` + `bedrock:InvokeModelWithResponseStream` on both Titan and Claude model ARNs
+- `lambda:InvokeFunction` on whatsapp-sender
+- `sqs:SendMessage` on delay queue
+- `sns:Publish` on escalations topic
+- `ssm:GetParameter` on `/ghost/*`
 
-## Claude Behaviour Rules
-- Never add `Co-Authored-By` or any Claude/Anthropic attribution to git commits
-- Never push or commit automatically — always ask the user before committing or pushing
+## Makefile Commands
+```bash
+make layer-install           # install layer deps (manylinux wheels for Lambda)
+make deploy-dev              # SAM build + deploy to dev
+make update                  # fast handler-only push (zip *.py + lambda update-function-code)
+make migrate                 # run Alembic migrations (requires DATABASE_URL env var)
+make dashboard               # fetch DATABASE_URL from SSM + start Next.js dev server
+
+make contact PHONE=... NAME="Alice" TIER=1
+make remember PHONE=... TEXT="Has a dog called Max"
+make me TEXT="I hate small talk"
+make mood
+make send PHONE=... TEXT="yo"
+make proactive PHONES=...
+make db                      # live psql session against dev DB
+```
 
 ## Key Design Notes
-- Lambda layer uses `BuildMethod: python3.12` — SAM installs requirements into `python/`
-- `layer-install` Makefile target uses `--platform manylinux2014_x86_64` for Lambda compat
-- Alembic migration does ALTER TABLE to cast TEXT → vector(1536) (avoids SQLAlchemy type issues)
-- IVFFlat index created with lists=100; tune as knowledge_chunks grows
-- Model IDs for LLM: `claude-sonnet-4-20250514`
-- Response generator fetches identity chunks directly from DB (contact_phone IS NULL, category='identity') — NOT via memory_retriever, so they're always included regardless of query match
-- Orchestrator splits multi-part replies on `\n` and sends each line as a separate WhatsApp message
-- Typing indicator simulation: `whatsapp_sender` calls `show_typing()` then sleeps `max(1s, min(6s, len(msg)/15))` before sending. Multi-part replies staggered by `part_index * 4s`.
-- **Burst handling**: orchestrator calls `_get_burst_messages()` to collect all user messages since last agent reply. Passes full list to response_generator. First reply part quotes last pending message via WhatsApp `context.message_id` (reply bubble). Supersession check + PostgreSQL advisory lock prevent double-sends when multiple orchestrator invocations race.
-- **Deduplication**: `messages.whatsapp_message_id` (unique index, nullable) — if Meta delivers the same webhook twice, second invocation exits early.
-- **Escalation threshold**: `confidence >= 0.85` required in orchestrator before routing to Telegram. Escalation detector uses strict prompt — only genuine crisis, real-world action requests, or authenticity challenges.
-- **Telegram escalation details**: after Send/Skip/Edit, original notification text is preserved (buttons removed only). Status posted as a new message below.
-- `make update` = fast handler-only push (zip + aws lambda update-function-code). Use when only handler.py changed.
-- `make deploy-dev` = full SAM build + deploy. Use when template.yaml, layer code, or models.py changed.
 
----
+- **Burst handling**: `get_burst_messages()` collects all user messages since last agent reply. All passed as single initial message to the Strands agent. First WhatsApp reply quotes the last pending message (reply bubble).
+- **Deduplication**: `messages.whatsapp_message_id` unique index — duplicate Meta webhooks exit early.
+- **Advisory lock**: `pg_try_advisory_xact_lock(hashtext(conversation_id))` prevents double-send on concurrent orchestrator invocations.
+- **Terminal tools**: `delay_reply` and `request_human_review` write to a module-level `_ctx_terminal` dict and tell Claude to stop. After `agent()` returns, handler checks `_ctx_terminal` and routes accordingly.
+- **RAG fallback**: if no embeddings exist yet (legacy rows), `rag_search()` returns empty and handler falls back to `get_identity_chunks()` (unfiltered identity chunks by persona).
+- **Multi-part replies**: reply split on `\n`, each line sent as separate WhatsApp message with staggered typing delay.
+- **WhatsApp token rotation**: tokens expire ~24h; update via `aws ssm put-parameter`, then force cold starts with a `RELOAD` env var update on all affected Lambdas.
+- **`make update`** zips all `*.py` in the function directory — use after any Python file change. Use `make deploy-dev` when `template.yaml`, layer, or `models.py` changed.
 
-## Roadmap
+## Remaining Work
 
-### DONE ✓
-
-#### Phase 1 — Skeleton
-- [x] WhatsApp webhook verification (GET /webhook)
-- [x] Inbound message parsing + logging to DB (webhook_receiver)
-- [x] Contact + conversation auto-create on first message
-- [x] All messages logged to DB (messages table)
-- [x] Echo reply via WhatsApp API end-to-end
-- [x] Full RDS schema via Alembic migration (contacts, conversations, messages, mood_states, knowledge_chunks w/ pgvector, escalations)
-- [x] SAM template wired: API GW, SQS, SNS, 9 Lambdas, shared Layer
-- [x] All secrets in SSM Parameter Store
-
-#### Phase 2 — Memory (partial)
-- [x] Knowledge chunks table + full-text search (tsvector) in memory_retriever
-- [x] Admin CLI (`scripts/admin.py`) for managing contacts, memories, identity data
-- [x] Identity profile seeded (8 knowledge_chunks, category='identity', contact_phone IS NULL)
-- [x] Makefile targets: contact, remember, me, show, contacts
-
-#### Phase 3 — Intelligence (partial)
-- [x] Mood engine — signal-based vector (time-of-day sinusoid, contact tier warmth, weekday humor, conversation velocity)
-- [x] Timing engine — tier-based delay windows, late-night penalty, SQS enqueue
-- [x] Orchestrator — full pipeline wired: mood → timing → escalation → memory → response → send
-- [x] Orchestrator — SQS delay queue (re-invocation on delay, is_delayed flag skips timing)
-- [x] Response generator — Claude API call with full identity + mood + memory + voice prompt
-- [x] Response generator — always fetches identity chunks from DB (not query-dependent)
-- [x] Multi-message splitting — replies split on `\n`, each line sent as separate WhatsApp message
-- [x] Typing indicator simulation — typing bubble + duration proportional to message length + sequential stagger
-- [x] Telegram bot — SNS escalation notification with Send/Edit/Skip inline buttons
-- [x] Telegram bot — /telegram webhook (API GW route) receiving button callbacks + edited replies
-- [x] Telegram bot — Send: DB lookup → whatsapp_sender → resolve escalation
-- [x] Telegram bot — Edit: force_reply prompt → edited text → whatsapp_sender → resolve
-- [x] Telegram bot — Skip: resolve escalation silently
-- [x] Telegram webhook registered with Telegram API
-- [x] Escalation detector — real Claude classifier (strict prompt, confidence threshold 0.85)
-- [x] Burst detection — orchestrator collects all pending messages, passes to response_generator; reply bubbles last message
-- [x] Duplicate webhook deduplication via `messages.whatsapp_message_id`
-- [x] Advisory lock prevents double-send on concurrent orchestrator invocations
-- [x] Telegram: escalation details preserved after Send/Skip/Edit (buttons removed, status as new message)
-
----
-
-### REMAINING
-
-#### Phase 2 — Memory (remaining) 🔴 HIGH IMPACT
-- [ ] **WhatsApp export ingestion** — parse exported .txt chat history, chunk into knowledge_chunks, store in DB. No real personalization without this. Needed before voice profile extraction.
-- [ ] **Voice profile extraction** — per-contact style from chat history: emoji rate, avg message length, formality, vocabulary. Stored as `contacts.voice_profile` JSONB.
-- [ ] **pgvector semantic search** — replace tsvector full-text in memory_retriever with `embedding <=> query_vector` cosine similarity. Requires embedding pipeline (Claude or text-embedding model).
-- [ ] **Conversation arc tracker** — state machine per conversation: open → flowing → winding_down → dormant. Transitions on message count, recency, reply patterns. Passed to response_generator.
-
-#### Phase 3 — Intelligence (remaining) 🟡 MEDIUM IMPACT
-- [ ] **Confidence scoring** — if response_generator confidence < threshold, auto-escalate to Telegram instead of sending. Currently confidence is always 1.0.
-- [ ] **Override learning loop** — when you Edit a draft on Telegram, save the edited version as a behavioral knowledge_chunk (`category='behavioral'`). Refines voice over time.
-- [ ] **Contact auto-learn** — infer contact name / tone / relationship tier from live conversation and update DB automatically. Currently requires manual `make contact`.
-
-#### Phase 4 — Refinement 🟢 LOWER PRIORITY
-- [ ] **Ghost management rules** — intentional read receipts. Mark message as read but don't reply when relationship tier warrants it.
-- [ ] **Proactive outreach** — birthday/life event triggers, re-engagement after long silence. Always Telegram-gated before sending.
-- [ ] **Long-delay support** — delays >15min currently capped at 900s (SQS max). Need DynamoDB TTL pattern for longer waits.
-- [ ] **Dashboard (Next.js)** — conversation feed, mood timeline, override history, per-contact kill switches.
-- [ ] **Calendar integration** — Google Calendar API signals meeting-heavy days → mood engine sets low-engagement mode.
-- [ ] **Continuous learning** — periodic re-calibration of voice_profile and mood model from accumulated override signals.
-
----
-
-### Next recommended steps (in order)
-1. **WhatsApp export ingestion** — highest leverage, unlocks real memory
-2. **pgvector + embeddings** — upgrade memory search quality
-3. **Voice profile extraction** — per-contact tone calibration
-4. **Conversation arc tracker** — Ghost knows when to wind down
-5. **Override learning loop** — Telegram edits saved as behavioral knowledge_chunks
+- **Backfill embeddings** on existing identity chunks — currently none have embeddings, so RAG always falls back to `get_identity_chunks()`. Run `embed()` on all existing rows to activate RAG for identity context.
+- **Migrate to Cohere via Bedrock** (best long-term embedding path) — once Cohere Embed v3 multilingual is enabled on the AWS account: (1) run migration `006_resize_embedding_cohere.py` to `ALTER COLUMN embedding TYPE vector(1024)` + recreate IVFFlat index, (2) replace `_embed_voyage()` in `agent.py` with a Bedrock Cohere call (IAM auth, no extra API key), mirror same change in `scripts/admin.py`, (3) backfill all existing `knowledge_chunks` rows. Until then, Voyage (`/ghost/{env}/voyage/api_key` in SSM) is the active embedding fallback.
+- **WhatsApp export ingestion** — parse `.txt` chat exports, chunk into `knowledge_chunks`, embed and store.
+- **Voice profile extraction** — per-contact style calibration from chat history (emoji rate, avg length, formality).
+- **Override learning loop** — Telegram edits → save as `behavioral` knowledge_chunk + embed.
+- **Confidence-based escalation** — auto-escalate when confidence < threshold (currently always 1.0).
+- **Long-delay support** — SQS max is 15 min; need DynamoDB TTL pattern for longer delays.
+- **Calendar integration** — meeting-heavy days → low-engagement mode.

@@ -19,7 +19,9 @@ webhook_receiver        — parse inbound message → invoke orchestrator async
       ↓
 orchestrator            — Claude agent loop (tool use)
       │
-      │  tools: search_memories, get_history, save_memory,
+      │  RAG: Titan/Voyage embeddings → pgvector identity + contact chunks
+      │
+      │  tools: get_history, save_memory,
       │         get_contact_profile, update_contact_profile,
       │         get_mood_state, update_mood,
       │         delay_reply, request_human_review, update_conversation_arc
@@ -43,7 +45,8 @@ proactive_engine        — scheduled every 2h, sends follow-ups autonomously
 |---|---|
 | Runtime | Python 3.12 |
 | Compute | AWS Lambda |
-| LLM | Claude `claude-sonnet-4-20250514` (Anthropic SDK, native tool use) |
+| Agent | Strands Agents + Bedrock Claude `anthropic.claude-sonnet-4-20250514-v1:0` |
+| Embeddings | Amazon Titan Text Embeddings v2, with Voyage fallback |
 | Database | RDS PostgreSQL 15 + pgvector |
 | Async queue | SQS (up to 15 min delay) |
 | Event routing | SNS |
@@ -72,9 +75,9 @@ functions/
   webhook_receiver/               GET verify + POST parse → orchestrator
   orchestrator/
     handler.py                    entry point + _process pipeline
-    agent.py                      Claude agent loop + system prompt
-    tools.py                      tool handlers + Anthropic schema
-    db_helpers.py                 all DB ops (contact, conversation, message, trace)
+    agent.py                      Strands agent loop, RAG pre-fetch, tool wrappers
+    tools.py                      underlying tool handler functions
+    db_helpers.py                 DB ops, pgvector search, contact/conversation/message/trace helpers
     dispatch.py                   SQS / Lambda / SNS invocations
     debug.py                      Telegram dev trace block
   whatsapp_sender/                sends via Meta Cloud API + typing indicator
@@ -113,6 +116,7 @@ dashboard/                        local Next.js debug platform
 /ghost/{env}/whatsapp/phone_number_id
 /ghost/{env}/whatsapp/verify_token
 /ghost/{env}/anthropic/api_key
+/ghost/{env}/voyage/api_key
 /ghost/{env}/telegram/bot_token
 /ghost/{env}/telegram/chat_id
 /ghost/{env}/db/connection_string
@@ -143,6 +147,8 @@ make mood      NOTES="bad week" AVAILABILITY=light ENERGY=0.4
 make proactive PHONES=33652469989,33664970571
 
 make db                  # live psql session against dev DB
+make test                # run local test suite
+make db-test             # live DB + pgvector connectivity check
 make telegram-webhook    # register Telegram webhook URL (run once after deploy)
 ```
 
@@ -201,14 +207,15 @@ done
 
 ## How Ghost thinks
 
-Each inbound message triggers a Claude agent loop. Claude has 10 tools:
+Each inbound message triggers a Strands agent loop backed by Claude. Before the model runs, Ghost embeds the current message burst, preloads the most relevant identity chunks and contact memories from pgvector, and falls back to unfiltered persona identity chunks if embeddings are unavailable.
+
+Claude then has 9 tools:
 
 | Tool | What it does |
 |---|---|
-| `search_memories` | full-text search over knowledge_chunks |
 | `get_history` | fetch recent conversation messages |
 | `get_contact_profile` | name, tier, voice profile, notes |
-| `save_memory` | write a new knowledge chunk |
+| `save_memory` | write and embed a new knowledge chunk |
 | `update_contact_profile` | update name / tier / notes |
 | `get_mood_state` | read persistent ghost_state |
 | `update_mood` | update energy / battery / load / availability |
@@ -216,14 +223,16 @@ Each inbound message triggers a Claude agent loop. Claude has 10 tools:
 | `request_human_review` | exit loop and escalate to Telegram |
 | `update_conversation_arc` | mark conversation open / flowing / winding_down / dormant |
 
-Claude decides what it needs. It fetches history only when relevant, saves memories when it learns something, updates mood after heavy exchanges, and delays or escalates when warranted.
+Claude decides what it needs. It fetches history only when relevant, saves new memories when it learns something, updates mood after heavy exchanges, and delays or escalates when warranted.
 
 ---
 
 ## Roadmap
 
 ### Done ✓
-- Full agent loop (Claude with 10 tools)
+- Full agent loop (Claude with 9 tools)
+- Strands-based agent loop with native Python tool wrappers
+- pgvector semantic memory pre-fetch via Titan embeddings, with Voyage fallback
 - Persistent ghost_state (mood/energy/battery managed by Claude + admin CLI)
 - Burst detection, deduplication, advisory lock
 - SQS delay queue
@@ -234,7 +243,7 @@ Claude decides what it needs. It fetches history only when relevant, saves memor
 - Admin CLI (`make contact / remember / me / mood / send / proactive`)
 
 ### Remaining
-- pgvector semantic search (replace tsvector full-text)
+- Backfill embeddings for older unembedded knowledge_chunks
 - Confidence-based auto-escalation (currently always 1.0)
 - Override learning loop (Telegram edits → behavioral knowledge_chunks)
 - Conversation arc tracker (state machine per conversation)

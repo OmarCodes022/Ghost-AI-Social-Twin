@@ -165,6 +165,35 @@ def get_identity_chunks(voice_profile: dict | None) -> list[str]:
         return [row["content"] for row in cur.fetchall()]
 
 
+def rag_search(query_embedding: list[float], contact_phone: str | None, k: int = 5) -> list[str]:
+    """Return top-k chunk content strings via pgvector cosine similarity."""
+    if not query_embedding:
+        return []
+    embedding_str = str(query_embedding)
+    with get_cursor() as cur:
+        if contact_phone is None:
+            cur.execute(
+                """
+                SELECT content FROM knowledge_chunks
+                WHERE contact_phone IS NULL AND embedding IS NOT NULL
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (embedding_str, k),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT content FROM knowledge_chunks
+                WHERE contact_phone = %s AND embedding IS NOT NULL
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                (contact_phone, embedding_str, k),
+            )
+        return [row["content"] for row in cur.fetchall()]
+
+
 def get_ghost_state() -> GhostState:
     with get_cursor() as cur:
         cur.execute(
