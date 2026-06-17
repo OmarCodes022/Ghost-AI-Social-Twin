@@ -325,6 +325,41 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
+  GhostLongDelayTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-long-delay-trigger-${Env}
+      CodeUri: functions/long_delay_trigger/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt LongDelaysTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName": ["REMOVE"]}'
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PulseQueue.QueueName
+
+  GhostWorldIngestion:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-world-ingestion-${Env}
+      CodeUri: functions/world_ingestion/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
