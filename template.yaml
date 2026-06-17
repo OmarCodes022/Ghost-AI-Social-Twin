@@ -178,6 +178,29 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
+  GhostAgentPerception:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-agent-perception-${Env}
+      CodeUri: functions/agent_perception/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      Events:
+        InboundQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt InboundMessageQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PerceptionOutputQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
