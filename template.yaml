@@ -89,6 +89,36 @@ Resources:
       QueueName: !Sub ghost-escalation-queue-${Env}
       VisibilityTimeout: 60
 
+  # ── SNS ───────────────────────────────────────────────────────────────────
+
+  EscalationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ghost-escalations-${Env}
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt EscalationQueue.Arn
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ghost-alerts-${Env}
+
+  EscalationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref EscalationQueue]
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt EscalationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EscalationsTopic
+
   # ── Layer ──────────────────────────────────────────────────────────────────
 
   GhostCommonLayer:
