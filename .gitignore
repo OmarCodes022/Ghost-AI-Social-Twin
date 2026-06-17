@@ -43,3 +43,4 @@ dashboard/node_modules/
 .claude/
 CLAUDE.md
 dashboard/
+secrets_backup.json
