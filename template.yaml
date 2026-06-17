@@ -233,6 +233,29 @@ Resources:
                 - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4*"
                 - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
 
+  GhostAgentMemory:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-agent-memory-${Env}
+      CodeUri: functions/agent_memory/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      Events:
+        MemoryProcessingQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MemoryProcessingQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource:
+                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
