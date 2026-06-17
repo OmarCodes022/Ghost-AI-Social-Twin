@@ -150,6 +150,34 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
+  # ── Lambda Functions ───────────────────────────────────────────────────────
+
+  GhostWebhookReceiver:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-webhook-receiver-${Env}
+      CodeUri: functions/webhook_receiver/
+      Handler: handler.lambda_handler
+      Timeout: 10
+      Events:
+        WebhookPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /webhook
+            Method: POST
+        WebhookGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /webhook
+            Method: GET
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt InboundMessageQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
