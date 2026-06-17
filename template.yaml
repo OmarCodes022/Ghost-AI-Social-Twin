@@ -256,6 +256,27 @@ Resources:
                 - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
                 - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
 
+  GhostPulse:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-pulse-${Env}
+      CodeUri: functions/pulse/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      Events:
+        PulseQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PulseQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PulseQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt HeartbeatQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
