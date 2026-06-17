@@ -277,6 +277,23 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
+  GhostWhatsappSender:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-whatsapp-sender-${Env}
+      CodeUri: functions/whatsapp_sender/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Events:
+        OutboundQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt OutboundMessageQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
