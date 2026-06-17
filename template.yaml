@@ -201,6 +201,38 @@ Resources:
               Action: bedrock:InvokeModel
               Resource: "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
 
+  GhostAgentGhost:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-agent-ghost-${Env}
+      CodeUri: functions/agent_ghost/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      Events:
+        PerceptionOutputQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PerceptionOutputQueue.Arn
+            BatchSize: 1
+        HeartbeatQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt HeartbeatQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt OutboundMessageQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EscalationQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+              Resource:
+                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4*"
+                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
