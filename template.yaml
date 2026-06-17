@@ -294,6 +294,26 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
+  GhostTelegramBot:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-telegram-bot-${Env}
+      CodeUri: functions/telegram_bot/
+      Handler: handler.lambda_handler
+      Timeout: 10
+      Events:
+        TelegramWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref GhostApi
+            Path: /telegram
+            Method: POST
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertsTopic.TopicName
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
