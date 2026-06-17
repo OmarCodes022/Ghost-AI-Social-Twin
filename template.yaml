@@ -119,6 +119,25 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !Ref EscalationsTopic
 
+  # ── DynamoDB (long delays) ─────────────────────────────────────────────────
+
+  LongDelaysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ghost-long-delays-${Env}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: delay_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: delay_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
   # ── Layer ──────────────────────────────────────────────────────────────────
 
   GhostCommonLayer:
