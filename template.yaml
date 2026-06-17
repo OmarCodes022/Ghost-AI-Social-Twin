@@ -34,6 +34,61 @@ Resources:
       StageName: !Ref Env
       TracingEnabled: true
 
+  # ── SQS Queues ─────────────────────────────────────────────────────────────
+
+  InboundMessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-inbound-message-queue-${Env}
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt InboundMessageDLQ.Arn
+        maxReceiveCount: 3
+
+  InboundMessageDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-inbound-message-dlq-${Env}
+      MessageRetentionPeriod: 1209600
+
+  PerceptionOutputQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-perception-output-queue-${Env}
+      VisibilityTimeout: 180
+
+  OutboundMessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-outbound-message-queue-${Env}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      VisibilityTimeout: 60
+
+  HeartbeatQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-heartbeat-queue-${Env}
+      VisibilityTimeout: 300
+
+  MemoryProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-memory-processing-queue-${Env}
+      VisibilityTimeout: 300
+
+  PulseQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-pulse-queue-${Env}
+      VisibilityTimeout: 60
+
+  EscalationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-escalation-queue-${Env}
+      VisibilityTimeout: 60
+
   # ── Layer ──────────────────────────────────────────────────────────────────
 
   GhostCommonLayer:
