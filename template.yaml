@@ -1,15 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Ghost - AI Social Twin
+Description: Ghost v2 - AI Social Twin
 
 Parameters:
   Env:
     Type: String
     Default: dev
-    AllowedValues:
-      - dev
-      - prod
-
+    AllowedValues: [dev, prod]
+  RdsProxyEndpoint:
+    Type: String
+    Description: RDS Proxy endpoint (set after RDS is provisioned)
+    Default: ""
 
 Globals:
   Function:
@@ -28,51 +29,117 @@ Globals:
 
 Resources:
 
-  # ─── SQS ──────────────────────────────────────────────────────────────────
-  GhostDelayQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub ghost-delay-queue-${Env}
-      VisibilityTimeout: 180
-      MessageRetentionPeriod: 3600
-      Tags:
-        - Key: Project
-          Value: ghost
-        - Key: Env
-          Value: !Ref Env
+  # ── Layer ──────────────────────────────────────────────────────────────────
 
-  # ─── SNS ──────────────────────────────────────────────────────────────────
-  GhostEscalationsTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub ghost-escalations-${Env}
-      Tags:
-        - Key: Project
-          Value: ghost
-        - Key: Env
-          Value: !Ref Env
-
-  # ─── Lambda Layer ──────────────────────────────────────────────────────────
   GhostCommonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub ghost-common-${Env}
       ContentUri: layers/ghost_common/
-      CompatibleRuntimes:
-        - python3.12
+      CompatibleRuntimes: [python3.12]
       RetentionPolicy: Delete
     Metadata:
       BuildMethod: makefile
-      # Replace with your real values
 
-  # ─── API Gateway ───────────────────────────────────────────────────────────
+  # ── SQS Queues ─────────────────────────────────────────────────────────────
+
+  InboundMessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-inbound-message-queue-${Env}
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt InboundMessageDLQ.Arn
+        maxReceiveCount: 3
+
+  InboundMessageDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-inbound-message-dlq-${Env}
+      MessageRetentionPeriod: 1209600
+
+  PerceptionOutputQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-perception-output-queue-${Env}
+      VisibilityTimeout: 180
+
+  OutboundMessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-outbound-message-queue-${Env}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      VisibilityTimeout: 60
+
+  HeartbeatQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-heartbeat-queue-${Env}
+      VisibilityTimeout: 300
+
+  MemoryProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-memory-processing-queue-${Env}
+      VisibilityTimeout: 300
+
+  PulseQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-pulse-queue-${Env}
+      VisibilityTimeout: 60
+
+  EscalationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-escalation-queue-${Env}
+      VisibilityTimeout: 60
+
+  # ── SNS ───────────────────────────────────────────────────────────────────
+
+  EscalationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ghost-escalations-${Env}
+      Subscription:
+        - Protocol: sqs
+          Endpoint: !GetAtt EscalationQueue.Arn
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ghost-alerts-${Env}
+
+  # ── DynamoDB (long delays) ─────────────────────────────────────────────────
+
+  LongDelaysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ghost-long-delays-${Env}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: delay_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: delay_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  # ── API Gateway ────────────────────────────────────────────────────────────
+
   GhostApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: !Sub ghost-api-${Env}
       StageName: !Ref Env
       TracingEnabled: true
-  # ─── Lambda Functions ──────────────────────────────────────────────────────
+
+  # ── Lambda Functions ───────────────────────────────────────────────────────
 
   GhostWebhookReceiver:
     Type: AWS::Serverless::Function
@@ -95,56 +162,112 @@ Resources:
             Path: /webhook
             Method: GET
       Policies:
-        - Statement:
-            - Effect: Allow
-              Action: lambda:InvokeFunction
-              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-orchestrator-${Env}
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt InboundMessageQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
 
-  GhostOrchestrator:
+  GhostAgentPerception:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ghost-orchestrator-${Env}
-      CodeUri: functions/orchestrator/
+      FunctionName: !Sub ghost-agent-perception-${Env}
+      CodeUri: functions/agent_perception/
       Handler: handler.lambda_handler
-      Timeout: 120
-      Environment:
-        Variables:
-          ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
-          DELAY_QUEUE_URL: !Ref GhostDelayQueue
+      Timeout: 60
       Events:
-        DelayQueueTrigger:
+        InboundQueue:
           Type: SQS
           Properties:
-            Queue: !GetAtt GhostDelayQueue.Arn
+            Queue: !GetAtt InboundMessageQueue.Arn
             BatchSize: 1
       Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PerceptionOutputQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
         - Statement:
             - Effect: Allow
-              Action: lambda:InvokeFunction
+              Action: [bedrock:InvokeModel]
+              Resource: "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+
+  GhostAgentGhost:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-agent-ghost-${Env}
+      CodeUri: functions/agent_ghost/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      Events:
+        PerceptionOutputQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PerceptionOutputQueue.Arn
+            BatchSize: 1
+        HeartbeatQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt HeartbeatQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt OutboundMessageQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EscalationQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
               Resource:
-                - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
+                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4*"
+                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+
+  GhostAgentMemory:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-agent-memory-${Env}
+      CodeUri: functions/agent_memory/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      Events:
+        MemoryProcessingQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MemoryProcessingQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
         - Statement:
             - Effect: Allow
-              Action: sqs:SendMessage
-              Resource: !GetAtt GhostDelayQueue.Arn
-        - Statement:
-            - Effect: Allow
-              Action: sns:Publish
-              Resource: !Ref GhostEscalationsTopic
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-              Resource: "*"
+              Action: [bedrock:InvokeModel]
+              Resource:
+                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+
+  GhostPulse:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-pulse-${Env}
+      CodeUri: functions/pulse/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      Events:
+        PulseQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PulseQueue.Arn
+            BatchSize: 1
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PulseQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt HeartbeatQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt MemoryProcessingQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+        # No Bedrock permission — enforced at IAM level, pulse never calls LLM
 
   GhostWhatsappSender:
     Type: AWS::Serverless::Function
@@ -153,11 +276,15 @@ Resources:
       CodeUri: functions/whatsapp_sender/
       Handler: handler.lambda_handler
       Timeout: 60
+      Events:
+        OutboundQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt OutboundMessageQueue.Arn
+            BatchSize: 1
       Policies:
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
 
   GhostTelegramBot:
     Type: AWS::Serverless::Function
@@ -167,10 +294,11 @@ Resources:
       Handler: handler.lambda_handler
       Timeout: 30
       Events:
-        EscalationSNS:
-          Type: SNS
+        EscalationQueue:
+          Type: SQS
           Properties:
-            Topic: !Ref GhostEscalationsTopic
+            Queue: !GetAtt EscalationQueue.Arn
+            BatchSize: 1
         TelegramWebhook:
           Type: Api
           Properties:
@@ -178,54 +306,81 @@ Resources:
             Path: /telegram
             Method: POST
       Policies:
-        - Statement:
-            - Effect: Allow
-              Action: lambda:InvokeFunction
-              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt OutboundMessageQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
 
-  GhostProactiveEngine:
+  GhostContextAssembler:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ghost-proactive-engine-${Env}
-      CodeUri: functions/proactive_engine/
-      Handler: handler.lambda_handler
-      Timeout: 60
-      Environment:
-        Variables:
-          ESCALATIONS_TOPIC_ARN: !Ref GhostEscalationsTopic
-      Events:
-        ProactiveSchedule:
-          Type: Schedule
-          Properties:
-            Schedule: rate(2 hours)
-            Enabled: true
+      FunctionName: !Sub ghost-context-assembler-${Env}
+      CodeUri: functions/context_assembler/
+      Handler: handler.build_context
+      Timeout: 30
       Policies:
-        - Statement:
-            - Effect: Allow
-              Action: lambda:InvokeFunction
-              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-whatsapp-sender-${Env}
-        - Statement:
-            - Effect: Allow
-              Action: sns:Publish
-              Resource: !Ref GhostEscalationsTopic
-        - Statement:
-            - Effect: Allow
-              Action: ssm:GetParameter
-              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ghost/*
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
+  GhostLongDelayTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-long-delay-trigger-${Env}
+      CodeUri: functions/long_delay_trigger/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt LongDelaysTable.StreamArn
+            StartingPosition: LATEST
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName": ["REMOVE"]}'
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt InboundMessageQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
+  GhostWorldIngestion:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-world-ingestion-${Env}
+      CodeUri: functions/world_ingestion/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      # PARKED — no trigger wired yet (see docs/Ghost v2/14_PARKED_ITEMS.md)
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
+  # ── SQS policy to allow SNS to send to EscalationQueue ────────────────────
+
+  EscalationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref EscalationQueue]
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt EscalationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EscalationsTopic
 
 Outputs:
   WebhookUrl:
-    Description: WhatsApp Webhook URL
     Value: !Sub https://${GhostApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/webhook
-
-  DelayQueueUrl:
-    Description: SQS Delay Queue URL
-    Value: !Ref GhostDelayQueue
-
-  EscalationsTopicArn:
-    Description: SNS Escalations Topic ARN
-    Value: !Ref GhostEscalationsTopic
+  TelegramWebhookUrl:
+    Value: !Sub https://${GhostApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/telegram
+  OutboundQueueUrl:
+    Value: !Ref OutboundMessageQueue
+  PulseQueueUrl:
+    Value: !Ref PulseQueue
+  LongDelaysTableName:
+    Value: !Ref LongDelaysTable
