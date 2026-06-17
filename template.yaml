@@ -363,3 +363,13 @@ Resources:
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
+  WebhookUrl:
+    Value: !Sub https://${GhostApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/webhook
+  TelegramWebhookUrl:
+    Value: !Sub https://${GhostApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}/telegram
+  OutboundQueueUrl:
+    Value: !Ref OutboundMessageQueue
+  PulseQueueUrl:
+    Value: !Ref PulseQueue
+  LongDelaysTableName:
+    Value: !Ref LongDelaysTable
