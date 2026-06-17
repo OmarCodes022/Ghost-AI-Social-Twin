@@ -25,6 +25,15 @@ Globals:
 
 Resources:
 
+  # ── API Gateway ────────────────────────────────────────────────────────────
+
+  GhostApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ghost-api-${Env}
+      StageName: !Ref Env
+      TracingEnabled: true
+
   # ── Layer ──────────────────────────────────────────────────────────────────
 
   GhostCommonLayer:
