@@ -314,6 +314,17 @@ Resources:
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt AlertsTopic.TopicName
 
+  GhostContextAssembler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-context-assembler-${Env}
+      CodeUri: functions/context_assembler/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub ghost/${Env}/*
+
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
