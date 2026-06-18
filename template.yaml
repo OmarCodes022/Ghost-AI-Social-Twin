@@ -185,6 +185,10 @@ Resources:
       CodeUri: functions/agent_perception/
       Handler: handler.lambda_handler
       Timeout: 60
+      Environment:
+        Variables:
+          PERCEPTION_OUTPUT_QUEUE_URL: !Ref PerceptionOutputQueue
+          ESCALATION_QUEUE_URL: !Ref EscalationQueue
       Events:
         InboundQueue:
           Type: SQS
@@ -194,6 +198,8 @@ Resources:
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt PerceptionOutputQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EscalationQueue.QueueName
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
         - Statement:
