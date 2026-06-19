@@ -1,5 +1,4 @@
-from enum import Enum
-from typing import Optional
+from typing import List
 from pydantic import BaseModel
 
 
@@ -12,29 +11,14 @@ class InboundMessage(BaseModel):
     message_type: str = "text"
 
 
-class MsgType(str, Enum):
-    question = "question"
-    statement = "statement"
-    greeting = "greeting"
-    farewell = "farewell"
-    media = "media"
-    voice_note = "voice_note"
-    other = "other"
-
-
-class Urgency(str, Enum):
-    high = "high"
-    medium = "medium"
-    low = "low"
-
-
 class Classification(BaseModel):
-    msg_type: MsgType
-    urgency: Urgency
-    sentiment: str  # positive / neutral / negative
-    needs_response: bool
-    escalate: bool = False
-    notes: Optional[str] = None
+    language: str        # 'french' | 'english' | 'arabic'
+    emotion: str         # e.g. 'dry', 'worried', 'excited', 'flat', 'warm'
+    intent: str          # e.g. 'checking_in', 'question', 'venting', 'greeting'
+    urgency: str         # 'high' | 'medium' | 'low'
+    attitude_shift: float  # -1.0 (very negative) to +1.0 (very positive)
+    sensitivity_flags: List[str]  # e.g. ['suicidal', 'crisis', 'threat']
+    topic_summary: str   # one short sentence
 
 
 class PerceptionOutput(BaseModel):
