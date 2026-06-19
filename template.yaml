@@ -159,6 +159,9 @@ Resources:
       CodeUri: functions/webhook_receiver/
       Handler: handler.lambda_handler
       Timeout: 10
+      Environment:
+        Variables:
+          INBOUND_QUEUE_URL: !Ref InboundMessageQueue
       Events:
         WebhookPost:
           Type: Api
