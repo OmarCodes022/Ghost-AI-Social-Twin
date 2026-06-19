@@ -55,7 +55,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-perception-output-queue-${Env}
-      VisibilityTimeout: 180
+      VisibilityTimeout: 360
 
   OutboundMessageQueue:
     Type: AWS::SQS::Queue
