@@ -265,6 +265,11 @@ Resources:
       CodeUri: functions/pulse/
       Handler: handler.lambda_handler
       Timeout: 60
+      Environment:
+        Variables:
+          PULSE_QUEUE_URL: !Ref PulseQueue
+          HEARTBEAT_QUEUE_URL: !Ref HeartbeatQueue
+          MEMORY_QUEUE_URL: !Ref MemoryProcessingQueue
       Events:
         PulseQueue:
           Type: SQS
@@ -276,6 +281,8 @@ Resources:
             QueueName: !GetAtt PulseQueue.QueueName
         - SQSSendMessagePolicy:
             QueueName: !GetAtt HeartbeatQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt MemoryProcessingQueue.QueueName
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
