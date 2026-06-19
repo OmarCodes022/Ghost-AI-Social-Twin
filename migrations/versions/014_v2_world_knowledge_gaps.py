@@ -1,4 +1,7 @@
-"""v2 world_events (stub) and contact_knowledge_gaps tables.
+"""v2 world_events and contact_knowledge_gaps tables.
+
+contact_knowledge_gaps: things Ghost doesn't know about a contact and wants
+to learn. field is a specific attribute name (e.g. "city", "job", "relationship_status").
 
 Revision ID: 014
 Revises: 013
@@ -33,18 +36,21 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE contact_knowledge_gaps (
-            id            UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
-            contact_phone VARCHAR   NOT NULL REFERENCES contacts(phone_number),
-            gap_topic     TEXT      NOT NULL,
-            priority      FLOAT     NOT NULL DEFAULT 0.5,
-            created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
-            resolved_at   TIMESTAMP
+            id                UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+            contact_phone     VARCHAR   NOT NULL REFERENCES contacts(phone_number),
+            field             TEXT      NOT NULL,
+            priority          FLOAT     NOT NULL DEFAULT 0.5,
+            asked_at          TIMESTAMP,
+            ask_attempt_count INTEGER   NOT NULL DEFAULT 0,
+            resolved_at       TIMESTAMP,
+            status            VARCHAR   NOT NULL DEFAULT 'pending',
+            created_at        TIMESTAMP NOT NULL DEFAULT NOW()
         )
         """
     )
     op.execute(
         "CREATE INDEX idx_knowledge_gaps_contact "
-        "ON contact_knowledge_gaps(contact_phone) WHERE resolved_at IS NULL"
+        "ON contact_knowledge_gaps(contact_phone, priority DESC) WHERE status = 'pending'"
     )
 
 
