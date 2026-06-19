@@ -217,6 +217,12 @@ Resources:
       CodeUri: functions/agent_ghost/
       Handler: handler.lambda_handler
       Timeout: 300
+      Environment:
+        Variables:
+          CONTEXT_ASSEMBLER_FUNCTION: !Sub ghost-context-assembler-${Env}
+          OUTBOUND_QUEUE_URL: !Ref OutboundMessageQueue
+          ESCALATION_QUEUE_URL: !Ref EscalationQueue
+          MEMORY_QUEUE_URL: !Ref MemoryProcessingQueue
       Events:
         PerceptionOutputQueue:
           Type: SQS
@@ -233,8 +239,14 @@ Resources:
             QueueName: !GetAtt OutboundMessageQueue.QueueName
         - SQSSendMessagePolicy:
             QueueName: !GetAtt EscalationQueue.QueueName
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt MemoryProcessingQueue.QueueName
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:ghost-context-assembler-${Env}
         - Statement:
             - Effect: Allow
               Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
