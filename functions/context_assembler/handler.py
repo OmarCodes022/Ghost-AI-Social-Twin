@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -29,21 +28,27 @@ def lambda_handler(event, context):
 
     log.info("assembling tier 1 context for %s", contact_phone)
 
+    contact = fetch_contact(contact_phone)
+
+    language = (
+        perception.get("classification", {}).get("language")
+        or contact.language_primary
+    )
+
     ctx = Tier1Context(
         ghost_state=fetch_ghost_state(),
-        contact=fetch_contact(contact_phone),
+        contact=contact,
         contact_state=fetch_contact_state(contact_phone),
         per_person_rules=fetch_per_person_rules(contact_phone),
         conversation_history=fetch_conversation_history(contact_phone),
-        life_events=fetch_life_events(),
-        few_shots=fetch_few_shots(contact_phone),
+        life_events=fetch_life_events(contact_phone),
+        few_shots=fetch_few_shots(language, contact.relationship_tier),
         perception=perception,
     )
 
     log.info(
-        "context assembled: %d messages, %d rules, %d few_shots",
+        "context assembled: %d messages, %d few_shots",
         len(ctx.conversation_history),
-        len(ctx.per_person_rules),
         len(ctx.few_shots),
     )
 
