@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 import boto3
 
 from .classifier import classify
-from .db import get_or_create_conversation, mark_processed, save_message, upsert_contact
+from .db import (
+    get_or_create_conversation,
+    save_message,
+    upsert_contact,
+    write_attitude_shift,
+)
 from .models import InboundMessage, PerceptionOutput
 
 log = logging.getLogger(__name__)
@@ -14,13 +19,7 @@ log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 _sqs = boto3.client("sqs", region_name=os.environ.get("AWS_REGION", "eu-west-1"))
 
-
-def _perception_queue_url() -> str:
-    return os.environ["PERCEPTION_OUTPUT_QUEUE_URL"]
-
-
-def _escalation_queue_url() -> str:
-    return os.environ["ESCALATION_QUEUE_URL"]
+_HIGH_RISK_FLAGS = {"suicidal", "crisis", "threat", "medical_emergency"}
 
 
 def lambda_handler(event, context):
@@ -34,7 +33,12 @@ def _process(raw: dict) -> None:
 
     upsert_contact(msg.phone_number, msg.name)
     conv_id = get_or_create_conversation(msg.phone_number)
-    message_id = save_message(conv_id, msg.phone_number, msg.content, msg.whatsapp_message_id)
+    message_id = save_message(
+        conv_id,
+        msg.phone_number,
+        msg.content,
+        msg.whatsapp_message_id,
+    )
 
     if not message_id:
         log.info("duplicate whatsapp_message_id %s — skipping", msg.whatsapp_message_id)
@@ -43,23 +47,31 @@ def _process(raw: dict) -> None:
     classification = classify(msg.content, msg.name)
     log.info("classified: %s", classification.model_dump())
 
-    mark_processed(message_id)
+    write_attitude_shift(msg.phone_number, classification.attitude_shift)
 
-    if classification.escalate:
+    # Update message with detected language
+    from .db import _get_conn
+    conn = _get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE messages SET language = %s WHERE id = %s",
+            (classification.language, message_id),
+        )
+    conn.commit()
+
+    high_risk = set(classification.sensitivity_flags) & _HIGH_RISK_FLAGS
+    if high_risk:
         _sqs.send_message(
-            QueueUrl=_escalation_queue_url(),
+            QueueUrl=os.environ["ESCALATION_QUEUE_URL"],
             MessageBody=json.dumps({
                 "contact_phone": msg.phone_number,
+                "contact_name": msg.name,
                 "message_id": message_id,
                 "content": msg.content,
-                "reason": classification.notes,
+                "reason": f"sensitivity_flags: {', '.join(high_risk)}",
             }),
         )
-        log.info("escalated message %s", message_id)
-        return
-
-    if not classification.needs_response:
-        log.info("no response needed for message %s", message_id)
+        log.info("escalated message %s (flags: %s)", message_id, high_risk)
         return
 
     output = PerceptionOutput(
@@ -72,7 +84,7 @@ def _process(raw: dict) -> None:
     )
 
     _sqs.send_message(
-        QueueUrl=_perception_queue_url(),
+        QueueUrl=os.environ["PERCEPTION_OUTPUT_QUEUE_URL"],
         MessageBody=output.model_dump_json(),
     )
     log.info("routed message %s to ghost", message_id)
