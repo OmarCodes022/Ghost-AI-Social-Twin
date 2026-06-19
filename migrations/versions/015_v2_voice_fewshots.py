@@ -1,5 +1,11 @@
 """v2 omar_voice_profiles and omar_few_shots tables.
 
+omar_voice_profiles: ONE row per language (french/english/arabic).
+Describes how Omar texts in that language - register, slang, style.
+
+omar_few_shots: keyed by language + relationship_tier, not by contact.
+Used as few-shot examples for Ghost to mimic Omar's voice.
+
 Revision ID: 015
 Revises: 014
 Create Date: 2026-06-17
@@ -16,11 +22,16 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE omar_voice_profiles (
-            contact_phone VARCHAR   PRIMARY KEY REFERENCES contacts(phone_number),
-            style_notes   TEXT,
-            vocab_examples JSONB   NOT NULL DEFAULT '[]',
-            tone          VARCHAR,
-            updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
+            language          VARCHAR   PRIMARY KEY,
+            register          TEXT,
+            slang             JSONB     NOT NULL DEFAULT '[]',
+            sentence_structure TEXT,
+            emoji_behavior    TEXT,
+            punctuation_habits TEXT,
+            avg_message_length INTEGER,
+            formality_level   FLOAT     NOT NULL DEFAULT 0.5,
+            tone_description  TEXT,
+            updated_at        TIMESTAMP NOT NULL DEFAULT NOW()
         )
         """
     )
@@ -28,17 +39,20 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE omar_few_shots (
-            id             UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
-            contact_phone  VARCHAR   REFERENCES contacts(phone_number),
-            scenario       TEXT      NOT NULL,
-            input_message  TEXT      NOT NULL,
-            ideal_response TEXT      NOT NULL,
-            created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+            id                UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+            language          VARCHAR   NOT NULL,
+            relationship_tier SMALLINT  NOT NULL,
+            context           TEXT      NOT NULL,
+            input             TEXT      NOT NULL,
+            output            TEXT      NOT NULL,
+            source            VARCHAR   NOT NULL DEFAULT 'manual',
+            created_at        TIMESTAMP NOT NULL DEFAULT NOW()
         )
         """
     )
     op.execute(
-        "CREATE INDEX idx_omar_few_shots_contact ON omar_few_shots(contact_phone)"
+        "CREATE INDEX idx_omar_few_shots_lang_tier "
+        "ON omar_few_shots(language, relationship_tier)"
     )
 
 

@@ -69,21 +69,27 @@ def _cmd_status() -> None:
     url = get_parameter(f"/ghost/{os.environ['ENV']}/db/connection_string")
     conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
     with conn.cursor() as cur:
-        cur.execute("SELECT energy, mood_summary, last_reflection_at FROM ghost_state WHERE id = 1")
+        cur.execute(
+            "SELECT mood, social_battery, emotional_load, whats_on_mind FROM ghost_state WHERE id = 1"
+        )
         row = cur.fetchone()
     conn.close()
     _channel.send_alert(
-        f"*Ghost Status*\nEnergy: {row['energy']}\nMood: {row['mood_summary'] or 'none'}\nLast reflection: {row['last_reflection_at'] or 'never'}"
+        f"*Ghost Status*\n"
+        f"Mood: {row['mood'] or 'none'}\n"
+        f"Social battery: {row['social_battery']:.1f}\n"
+        f"Emotional load: {row['emotional_load']:.1f}\n"
+        f"On mind: {row['whats_on_mind'] or 'nothing'}"
     )
 
 
 def _cmd_pause(phone: str) -> None:
-    _set_contact_status(phone, "idle")
+    _set_contact_paused(phone, True)
     _channel.send_alert(f"Ghost paused for `{phone}`.")
 
 
 def _cmd_resume(phone: str) -> None:
-    _set_contact_status(phone, "active")
+    _set_contact_paused(phone, False)
     _channel.send_alert(f"Ghost resumed for `{phone}`.")
 
 
@@ -103,15 +109,16 @@ def _cmd_override(phone: str, message: str) -> None:
     _channel.send_alert(f"Override sent to `{phone}`.")
 
 
-def _set_contact_status(phone: str, status: str) -> None:
+def _set_contact_paused(phone: str, paused: bool) -> None:
     import psycopg2
     from ssm import get_parameter
     url = get_parameter(f"/ghost/{os.environ['ENV']}/db/connection_string")
     conn = psycopg2.connect(url)
     with conn.cursor() as cur:
+        # Use pulse_score = -99 as a sentinel for "paused by Omar"
         cur.execute(
-            "UPDATE contact_state SET status = %s WHERE contact_phone = %s",
-            (status, phone),
+            "UPDATE contact_state SET pulse_score = %s, updated_at = NOW() WHERE contact_phone = %s",
+            (-99.0 if paused else 0.0, phone),
         )
     conn.commit()
     conn.close()

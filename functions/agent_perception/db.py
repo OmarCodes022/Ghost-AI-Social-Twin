@@ -1,8 +1,6 @@
 import os
 import boto3
 import psycopg2
-import psycopg2.extras
-from datetime import datetime, timezone
 
 _conn = None
 
@@ -34,18 +32,45 @@ def upsert_contact(phone: str, name: str) -> None:
             """
             INSERT INTO contacts (phone_number, name)
             VALUES (%s, %s)
-            ON CONFLICT (phone_number) DO UPDATE SET name = EXCLUDED.name
+            ON CONFLICT (phone_number) DO UPDATE SET
+                name = EXCLUDED.name,
+                updated_at = NOW()
             """,
             (phone, name),
         )
         cur.execute(
             """
-            INSERT INTO contact_state (contact_phone, last_seen_at, last_message_at)
-            VALUES (%s, NOW(), NOW())
-            ON CONFLICT (contact_phone) DO UPDATE
-            SET last_seen_at = NOW(), last_message_at = NOW(), status = 'active'
+            INSERT INTO contact_state (contact_phone, last_interaction_at, last_interaction_role,
+                                       unanswered_message_flag, unanswered_since)
+            VALUES (%s, NOW(), 'contact', TRUE, NOW())
+            ON CONFLICT (contact_phone) DO UPDATE SET
+                last_interaction_at = NOW(),
+                last_interaction_role = 'contact',
+                unanswered_message_flag = TRUE,
+                unanswered_since = CASE
+                    WHEN contact_state.unanswered_message_flag = FALSE THEN NOW()
+                    ELSE contact_state.unanswered_since
+                END,
+                updated_at = NOW()
             """,
             (phone,),
+        )
+    conn.commit()
+
+
+def write_attitude_shift(phone: str, shift: float) -> None:
+    """Apply attitude_shift to contact_state immediately (Principle 4: understand once, store at once)."""
+    conn = _get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE contact_state SET
+                current_attitude_score = GREATEST(-1.0, LEAST(1.0,
+                    current_attitude_score + %s)),
+                updated_at = NOW()
+            WHERE contact_phone = %s
+            """,
+            (shift, phone),
         )
     conn.commit()
 
@@ -56,7 +81,7 @@ def get_or_create_conversation(phone: str) -> str:
         cur.execute(
             """
             SELECT id FROM conversations
-            WHERE contact_phone = %s AND ended_at IS NULL
+            WHERE contact_phone = %s AND state = 'open'
             ORDER BY started_at DESC LIMIT 1
             """,
             (phone,),
@@ -65,17 +90,14 @@ def get_or_create_conversation(phone: str) -> str:
         if row:
             conv_id = str(row[0])
             cur.execute(
-                "UPDATE conversations SET last_message_at = NOW(), message_count = message_count + 1 WHERE id = %s",
+                "UPDATE conversations SET message_count = message_count + 1, updated_at = NOW() WHERE id = %s",
                 (conv_id,),
             )
             conn.commit()
             return conv_id
 
         cur.execute(
-            """
-            INSERT INTO conversations (contact_phone, message_count)
-            VALUES (%s, 1) RETURNING id
-            """,
+            "INSERT INTO conversations (contact_phone, state, message_count) VALUES (%s, 'open', 1) RETURNING id",
             (phone,),
         )
         conv_id = str(cur.fetchone()[0])
@@ -88,28 +110,19 @@ def save_message(
     contact_phone: str,
     content: str,
     whatsapp_message_id: str,
+    language: str = None,
 ) -> str:
     conn = _get_conn()
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO messages (conversation_id, contact_phone, role, content, whatsapp_message_id)
-            VALUES (%s, %s, 'user', %s, %s)
+            INSERT INTO messages (conversation_id, contact_phone, role, content, language, whatsapp_message_id)
+            VALUES (%s, %s, 'contact', %s, %s, %s)
             ON CONFLICT (whatsapp_message_id) DO NOTHING
             RETURNING id
             """,
-            (conversation_id, contact_phone, content, whatsapp_message_id),
+            (conversation_id, contact_phone, content, language, whatsapp_message_id),
         )
         row = cur.fetchone()
     conn.commit()
     return str(row[0]) if row else None
-
-
-def mark_processed(message_id: str) -> None:
-    conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE messages SET processed = TRUE WHERE id = %s",
-            (message_id,),
-        )
-    conn.commit()

@@ -119,25 +119,6 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !Ref EscalationsTopic
 
-  # ── DynamoDB (long delays) ─────────────────────────────────────────────────
-
-  LongDelaysTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub ghost-long-delays-${Env}
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: delay_id
-          AttributeType: S
-      KeySchema:
-        - AttributeName: delay_id
-          KeyType: HASH
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
-
   # ── Layer ──────────────────────────────────────────────────────────────────
 
   GhostCommonLayer:
@@ -354,26 +335,6 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
-  GhostLongDelayTrigger:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ghost-long-delay-trigger-${Env}
-      CodeUri: functions/long_delay_trigger/
-      Handler: handler.lambda_handler
-      Timeout: 30
-      Events:
-        DynamoDBStream:
-          Type: DynamoDB
-          Properties:
-            Stream: !GetAtt LongDelaysTable.StreamArn
-            StartingPosition: TRIM_HORIZON
-            FilterCriteria:
-              Filters:
-                - Pattern: '{"eventName": ["REMOVE"]}'
-      Policies:
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt PulseQueue.QueueName
-
   GhostWorldIngestion:
     Type: AWS::Serverless::Function
     Properties:
@@ -400,5 +361,3 @@ Outputs:
     Value: !Ref OutboundMessageQueue
   PulseQueueUrl:
     Value: !Ref PulseQueue
-  LongDelaysTableName:
-    Value: !Ref LongDelaysTable
