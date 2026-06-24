@@ -31,9 +31,13 @@ layers/ghost_common/python/*.dist-info
 .DS_Store
 Thumbs.db
 
-# Secrets
+# Secrets - never commit these
 .env.local
-secrets.json
+secrets*.json
+*_backup.json
+*credentials*.json
+*.key
+*.pem
 
 # Next.js
 dashboard/.next/
