@@ -6,7 +6,7 @@ import boto3
 _bedrock = None
 _voyage_client = None
 
-MODEL_ID = "anthropic.claude-haiku-4-5-20251001-v1:0"
+MODEL_ID = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 def _get_bedrock():

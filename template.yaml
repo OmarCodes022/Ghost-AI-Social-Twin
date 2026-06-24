@@ -189,7 +189,9 @@ Resources:
         - Statement:
             - Effect: Allow
               Action: bedrock:InvokeModel
-              Resource: "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+              Resource:
+                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-haiku-4-5*"
 
   GhostAgentGhost:
     Type: AWS::Serverless::Function
@@ -233,6 +235,7 @@ Resources:
               Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
               Resource:
                 - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4*"
+                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-sonnet-4*"
                 - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
 
   GhostAgentMemory:
@@ -256,6 +259,7 @@ Resources:
               Action: bedrock:InvokeModel
               Resource:
                 - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-haiku-4-5*"
                 - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
 
   GhostPulse:

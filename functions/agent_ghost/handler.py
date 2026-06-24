@@ -46,7 +46,7 @@ from tools import TOOL_DEFINITIONS, execute_tool, execute_sql
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 MAX_TOOL_ROUNDS = 8
 
 _bedrock = None
