@@ -23,7 +23,7 @@ import json
 import logging
 import os
 
-from .db import (
+from db import (
     fetch_contact,
     fetch_contact_state,
     fetch_conversation,
@@ -33,7 +33,7 @@ from .db import (
     update_contact_state,
     update_conversation,
 )
-from .processor import embed, extract_signals
+from processor import embed, extract_signals
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))

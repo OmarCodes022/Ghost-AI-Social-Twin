@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import boto3
 
-from .conditions import evaluate_condition
-from .db import (
+from conditions import evaluate_condition
+from db import (
     close_conversation,
     fetch_active_defer_conditions,
     fetch_active_intentions,
@@ -19,8 +19,8 @@ from .db import (
     mark_condition_resolved,
     update_pulse_score,
 )
-from .guardrails import is_outreach_allowed
-from .scoring import SCORE_THRESHOLD, compute_pulse_score
+from guardrails import is_outreach_allowed
+from scoring import SCORE_THRESHOLD, compute_pulse_score
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))

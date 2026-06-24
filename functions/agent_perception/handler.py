@@ -5,14 +5,14 @@ from datetime import datetime, timezone
 
 import boto3
 
-from .classifier import classify
-from .db import (
+from classifier import classify
+from db import (
     get_or_create_conversation,
     save_message,
     upsert_contact,
     write_attitude_shift,
 )
-from .models import InboundMessage, PerceptionOutput
+from models import InboundMessage, PerceptionOutput
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
@@ -50,7 +50,7 @@ def _process(raw: dict) -> None:
     write_attitude_shift(msg.phone_number, classification.attitude_shift)
 
     # Update message with detected language
-    from .db import _get_conn
+    from db import _get_conn
     conn = _get_conn()
     with conn.cursor() as cur:
         cur.execute(

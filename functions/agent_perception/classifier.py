@@ -1,7 +1,7 @@
 import json
 import os
 import boto3
-from .models import Classification
+from models import Classification
 
 _MODEL = "anthropic.claude-haiku-4-5"
 _bedrock = None
