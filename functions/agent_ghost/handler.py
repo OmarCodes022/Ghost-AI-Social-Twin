@@ -211,7 +211,24 @@ def _bedrock_tool_loop(system: str, human_turn: str) -> str:
             log.warning("unexpected stop_reason: %s", stop_reason)
             break
 
-    log.warning("tool loop hit max rounds (%d)", MAX_TOOL_ROUNDS)
+    log.warning("tool loop hit max rounds (%d), forcing final turn", MAX_TOOL_ROUNDS)
+    messages.append({"role": "user", "content": "Tool budget exhausted. Output your <ghost_decision> block now based on everything gathered. No more tool calls."})
+    result = json.loads(
+        bedrock.invoke_model(
+            modelId=MODEL_ID,
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 1024,
+                "system": system,
+                "messages": messages,
+            }),
+            contentType="application/json",
+            accept="application/json",
+        )["body"].read()
+    )
+    for block in reversed(result.get("content", [])):
+        if block.get("type") == "text":
+            return block["text"]
     return ""
 
 
@@ -241,7 +258,7 @@ def _dispatch_reply(phone: str, conv_id: str, decision: dict) -> None:
 def _send_outbound(phone: str, message: str, delay_minutes: int = 0) -> None:
     _get_sqs().send_message(
         QueueUrl=os.environ["OUTBOUND_QUEUE_URL"],
-        MessageBody=json.dumps({"phone": phone, "message": message, "delay_minutes": delay_minutes}),
+        MessageBody=json.dumps({"to_phone_number": phone, "content": message}),
         MessageGroupId=phone,
         MessageDeduplicationId=str(uuid.uuid4()),
     )
