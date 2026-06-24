@@ -12,9 +12,7 @@ Usage:
     ENV=dev python ingest_whatsapp.py --omar-name "Omar" export1.txt export2.txt
 """
 import argparse
-import json
 import re
-import sys
 import uuid
 from collections import defaultdict
 from datetime import datetime
@@ -198,7 +196,7 @@ def insert_few_shots(conn, shots: list) -> int:
     return inserted
 
 
-def upsert_contact_profile(conn, placeholder: str, name: str, tier: int, total_messages: int) -> None:
+def upsert_contact_profile(conn, placeholder: str, name: str, tier: int) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -272,7 +270,7 @@ def process_file(conn, path: Path, omar_name: str) -> None:
     n_shots = insert_few_shots(conn, shots)
     print(f"  Few-shots inserted: {n_shots}")
 
-    upsert_contact_profile(conn, placeholder, contact_name, tier, total)
+    upsert_contact_profile(conn, placeholder, contact_name, tier)
     print(f"  Contact profile created: {placeholder}")
 
 
