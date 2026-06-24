@@ -190,8 +190,8 @@ Resources:
             - Effect: Allow
               Action: bedrock:InvokeModel
               Resource:
-                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
-                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*"
+                - !Sub "arn:aws:bedrock:eu-west-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-haiku-4-5*"
 
   GhostAgentGhost:
     Type: AWS::Serverless::Function
@@ -234,9 +234,9 @@ Resources:
             - Effect: Allow
               Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
               Resource:
-                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4*"
-                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-sonnet-4*"
-                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+                - "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4*"
+                - !Sub "arn:aws:bedrock:eu-west-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-sonnet-4*"
+                - "arn:aws:bedrock:*::foundation-model/voyage-3*"
 
   GhostAgentMemory:
     Type: AWS::Serverless::Function
@@ -258,9 +258,9 @@ Resources:
             - Effect: Allow
               Action: bedrock:InvokeModel
               Resource:
-                - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5*"
-                - "arn:aws:bedrock:eu-west-1::inference-profile/eu.anthropic.claude-haiku-4-5*"
-                - "arn:aws:bedrock:eu-west-1::foundation-model/voyage-3*"
+                - "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*"
+                - !Sub "arn:aws:bedrock:eu-west-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-haiku-4-5*"
+                - "arn:aws:bedrock:*::foundation-model/voyage-3*"
 
   GhostPulse:
     Type: AWS::Serverless::Function
