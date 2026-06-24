@@ -3,7 +3,7 @@ import os
 import boto3
 from models import Classification
 
-_MODEL = "anthropic.claude-haiku-4-5"
+_MODEL = "anthropic.claude-haiku-4-5-20251001-v1:0"
 _bedrock = None
 
 _SYSTEM = """\
