@@ -39,7 +39,7 @@ put "voyage/api_key" "$VOYAGE_KEY"
 
 # WhatsApp
 read -rsp "WhatsApp Business API token: " WA_TOKEN; echo
-put "whatsapp/api_token" "$WA_TOKEN"
+put "whatsapp/token" "$WA_TOKEN"
 
 read -rsp "WhatsApp phone number ID: " WA_PHONE_ID; echo
 put "whatsapp/phone_number_id" "$WA_PHONE_ID"
