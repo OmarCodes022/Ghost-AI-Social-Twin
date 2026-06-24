@@ -30,8 +30,9 @@ def upsert_contact(phone: str, name: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO contacts (phone_number, name)
-            VALUES (%s, %s)
+            INSERT INTO contacts (phone_number, name, relationship_tier, language_primary,
+                                  texting_style, trust_level, risk_level)
+            VALUES (%s, %s, 3, 'french', '{}', 0.5, 0.3)
             ON CONFLICT (phone_number) DO UPDATE SET
                 name = EXCLUDED.name,
                 updated_at = NOW()
