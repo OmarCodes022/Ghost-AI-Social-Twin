@@ -32,7 +32,7 @@ def upsert_contact(phone: str, name: str) -> None:
             """
             INSERT INTO contacts (phone_number, name, relationship_tier, language_primary,
                                   texting_style, trust_level, risk_level)
-            VALUES (%s, %s, 3, 'french', '{}', 0.5, 0.3)
+            VALUES (%s, %s, 1, 'french', '{}', 0.8, 0.1)
             ON CONFLICT (phone_number) DO UPDATE SET
                 name = EXCLUDED.name,
                 updated_at = NOW()

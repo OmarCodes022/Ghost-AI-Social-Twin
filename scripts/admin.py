@@ -58,7 +58,7 @@ def cmd_contact(args):
             VALUES (%s, %s, %s, %s, '{}', 0.8, 0.1)
             ON CONFLICT (phone_number) DO NOTHING
             """,
-            (args.phone, args.name or args.phone, int(args.tier) if args.tier else 3,
+            (args.phone, args.name or args.phone, int(args.tier) if args.tier else 1,
              args.lang.lower() if args.lang else "french"),
         )
         if updates:
