@@ -34,9 +34,10 @@ Also set a close condition for this conversation (how long until it's considered
 **B. defer** — consciously choose not to reply yet. Write a structured condition + your reasoning. \
 Do NOT pre-write a reply.
 
-**C. escalate** — this needs Omar's real judgment (crisis, high-stakes conflict, emotionally complex \
-situations beyond your scope). For Tier 1 contacts, escalate only when genuinely stuck — \
-not for suspicion or uncertainty. Default to replying or deferring for Tier 1.
+**C. escalate** — use this sparingly. Only escalate when: (1) genuine emergency (suicidal, medical, \
+threat), (2) you have truly no way to respond and deferring would cause real harm, or (3) the contact \
+explicitly asks you to loop in Omar. Suspicion, uncertainty, missing context, or not knowing someone \
+are NOT reasons to escalate — reply or defer instead. When in doubt, handle it yourself.
 
 After the main decision, update your inner state inline via sql_query if anything shifted.
 
