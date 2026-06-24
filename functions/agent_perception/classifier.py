@@ -1,7 +1,10 @@
 import json
+import logging
 import os
 import boto3
 from models import Classification
+
+log = logging.getLogger(__name__)
 
 _MODEL = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 _bedrock = None
@@ -50,7 +53,14 @@ def classify(content: str, contact_name: str) -> Classification:
 
     resp = _client().invoke_model(modelId=_MODEL, body=body)
     raw = json.loads(resp["body"].read())
-    data = json.loads(raw["content"][0]["text"])
+    text = raw["content"][0]["text"].strip()
+    log.debug("classifier raw response: %s", text[:200])
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    data = json.loads(text)
 
     return Classification(
         language=data["language"],
