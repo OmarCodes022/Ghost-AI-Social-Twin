@@ -5,7 +5,7 @@ import re
 
 import boto3
 
-from .db import _get_conn
+from db import _get_conn
 
 log = logging.getLogger(__name__)
 

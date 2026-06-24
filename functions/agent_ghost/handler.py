@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 
 import boto3
 
-from .db import (
+from db import (
     fetch_identity_memories,
     fetch_voice_profiles,
     open_conversation,
@@ -40,8 +40,8 @@ from .db import (
     write_defer_condition,
     write_reflection,
 )
-from .prompts import build_system_prompt, format_heartbeat_context, format_response_context
-from .tools import TOOL_DEFINITIONS, execute_tool, execute_sql
+from prompts import build_system_prompt, format_heartbeat_context, format_response_context
+from tools import TOOL_DEFINITIONS, execute_tool, execute_sql
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
