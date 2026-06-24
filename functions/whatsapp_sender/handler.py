@@ -3,7 +3,7 @@ import logging
 import os
 import time
 
-from whatsapp import mark_read, send_text
+from whatsapp import mark_read, send_text, set_typing
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
@@ -37,6 +37,7 @@ def _send(payload: dict) -> None:
     for i, part in enumerate(parts):
         delay = max(MIN_DELAY, min(MAX_DELAY, len(part) / CHARS_PER_SECOND))
         log.info("typing delay %.1fs for %d chars to %s", delay, len(part), to)
+        set_typing(to)
         time.sleep(delay)
         result = send_text(to=to, text=part, reply_to=reply_to if i == 0 else None)
         wamid = (result.get("messages") or [{}])[0].get("id")

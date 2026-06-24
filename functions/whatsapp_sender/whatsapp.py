@@ -26,6 +26,18 @@ def mark_read(message_id: str) -> None:
     ).raise_for_status()
 
 
+def set_typing(to: str) -> None:
+    try:
+        requests.post(
+            f"{_BASE}/{_phone_id()}/messages",
+            headers=_headers(),
+            json={"messaging_product": "whatsapp", "to": to, "status": "typing"},
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
 def send_text(to: str, text: str, reply_to: str | None = None) -> dict:
     body = {
         "messaging_product": "whatsapp",
