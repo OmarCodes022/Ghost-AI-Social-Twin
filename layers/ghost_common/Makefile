@@ -5,4 +5,3 @@ build-GhostCommonLayer:
 		--implementation cp \
 		--only-binary=:all: \
 		--python-version 3.12
-	cp python/*.py $(ARTIFACTS_DIR)/python/
