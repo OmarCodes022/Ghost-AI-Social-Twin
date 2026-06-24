@@ -268,9 +268,9 @@ def _dispatch_escalation(phone: str, perception: dict, reason: str) -> None:
     _get_sqs().send_message(
         QueueUrl=os.environ["ESCALATION_QUEUE_URL"],
         MessageBody=json.dumps({
-            "phone": phone,
-            "message": perception.get("content", ""),
+            "contact_phone": phone,
+            "contact_name": perception.get("contact_name", phone),
+            "content": perception.get("content", ""),
             "reason": reason,
-            "perception": perception,
         }),
     )
