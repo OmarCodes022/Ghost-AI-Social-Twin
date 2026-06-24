@@ -44,8 +44,10 @@ def insert_memory(
     importance: float,
     contact_phone: str = None,
     source_conversation: str = None,
+    embedding: list = None,
 ) -> None:
-    embedding = embed(content)
+    if embedding is None:
+        embedding = embed(content)
     with conn.cursor() as cur:
         cur.execute(
             """

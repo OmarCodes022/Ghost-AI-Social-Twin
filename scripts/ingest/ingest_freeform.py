@@ -69,28 +69,40 @@ Document:
 {text}""",
         }],
     )
-    return json.loads(resp.content[0].text)
+    raw = resp.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw.strip())
 
 
 def run(filepath: str) -> None:
+    import time
+    from ghost_ingest_utils import _get_voyage
+
     text = Path(filepath).read_text(encoding="utf-8")
     print(f"Categorizing {len(text)} chars with Claude Haiku ...")
     chunks = categorize(text)
-    print(f"Got {len(chunks)} chunks")
+    print(f"Got {len(chunks)} chunks — embedding one at a time (Voyage free tier: 3 RPM) ...")
 
+    voyage = _get_voyage()
     conn = get_db_connection()
-    inserted = 0
-    for chunk in chunks:
+    for i, chunk in enumerate(chunks):
         subsection = chunk.get("subsection", "")
         category = chunk.get("category") or CATEGORY_MAP.get(subsection, "identity")
         content = f"[{subsection}]\n{chunk['content']}" if subsection else chunk["content"]
         importance = IMPORTANCE_MAP.get(category, 0.8)
-        insert_memory(conn, content, category, "english", importance)
-        inserted += 1
-        print(f"  inserted [{subsection}] ({len(chunk['content'])} chars)")
+
+        if i > 0:
+            time.sleep(21)
+        result = voyage.embed([content], model="voyage-3")
+        embedding = result.embeddings[0]
+        insert_memory(conn, content, category, "french", importance, embedding=embedding)
+        print(f"  [{i+1}/{len(chunks)}] inserted [{subsection}] ({len(content)} chars)")
 
     conn.close()
-    print(f"\nDone - {inserted} memory rows inserted.")
+    print(f"\nDone - {len(chunks)} memory rows inserted.")
 
 
 if __name__ == "__main__":
