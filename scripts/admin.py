@@ -201,6 +201,57 @@ def cmd_mood(args):
             print(f"On mind: {row['whats_on_mind']}")
 
 
+# ── thoughts ──────────────────────────────────────────────────────────────────
+
+def cmd_thoughts(args):
+    conn = _get_conn()
+    with conn.cursor() as cur:
+        where = "WHERE contact_phone = %s" if args.phone else ""
+        params = (args.phone,) if args.phone else ()
+        cur.execute(
+            f"""SELECT trigger_type, contact_phone, decision, scratchpad, created_at
+                FROM ghost_reflections {where}
+                ORDER BY created_at DESC LIMIT %s""",
+            params + (args.n,),
+        )
+        rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        print("No reflections found.")
+        return
+    for r in rows:
+        ts = r["created_at"].strftime("%H:%M:%S")
+        print(f"\n{'─'*60}")
+        print(f"[{ts}] {r['trigger_type']} | phone={r['contact_phone']} | action={r['decision']}")
+        print(f"{'─'*60}")
+        if r["scratchpad"]:
+            print(r["scratchpad"])
+
+
+# ── convo ─────────────────────────────────────────────────────────────────────
+
+def cmd_convo(args):
+    conn = _get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT m.role, m.content, m.language, m.created_at
+               FROM messages m
+               JOIN conversations c ON c.id = m.conversation_id
+               WHERE c.contact_phone = %s
+               ORDER BY m.created_at DESC LIMIT %s""",
+            (args.phone, args.n),
+        )
+        rows = list(reversed(cur.fetchall()))
+    conn.close()
+    if not rows:
+        print("No messages found.")
+        return
+    for r in rows:
+        ts = r["created_at"].strftime("%H:%M:%S")
+        who = "Ghost" if r["role"] == "ghost" else "Contact"
+        print(f"[{ts}] {who}: {r['content']}")
+
+
 # ── proactive ─────────────────────────────────────────────────────────────────
 
 def cmd_proactive(args):
@@ -256,11 +307,18 @@ def main():
     p = sub.add_parser("proactive")
     p.add_argument("--phones", required=True); p.add_argument("--dry-run", action="store_true")
 
+    p = sub.add_parser("thoughts")
+    p.add_argument("--phone"); p.add_argument("--n", type=int, default=5)
+
+    p = sub.add_parser("convo")
+    p.add_argument("--phone", required=True); p.add_argument("--n", type=int, default=20)
+
     args = parser.parse_args()
     dispatch = {
         "contact": cmd_contact, "show": cmd_show, "contacts": cmd_contacts,
         "remember": cmd_remember, "me": cmd_me, "send": cmd_send,
         "mood": cmd_mood, "proactive": cmd_proactive,
+        "thoughts": cmd_thoughts, "convo": cmd_convo,
     }
     fn = dispatch.get(args.command)
     if not fn:

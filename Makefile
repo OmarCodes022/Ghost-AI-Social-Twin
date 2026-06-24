@@ -2,7 +2,7 @@ REGION ?= eu-west-1
 ENV    ?= dev
 PYTHON ?= .venv/bin/python
 
-.PHONY: build deploy-dev deploy-prod migrate layer-install test db-test update db contact remember me show contacts telegram-webhook mood send proactive dashboard dashboard-install
+.PHONY: build deploy-dev deploy-prod migrate layer-install test db-test update db contact remember me show contacts telegram-webhook mood send proactive dashboard dashboard-install thoughts convo
 
 # Build all Lambda functions and layers
 build:
@@ -122,6 +122,21 @@ show:
 # List all contacts
 contacts:
 	@.venv/bin/python scripts/admin.py contacts
+
+# Show Ghost's recent thoughts/scratchpad (all contacts or one)
+# Usage: make thoughts
+# Usage: make thoughts PHONE=33744746977 N=10
+thoughts:
+	@.venv/bin/python scripts/admin.py thoughts \
+		$(if $(PHONE),--phone "$(PHONE)") \
+		$(if $(N),--n "$(N)")
+
+# Show conversation history with a contact
+# Usage: make convo PHONE=33744746977
+# Usage: make convo PHONE=33744746977 N=50
+convo:
+	@.venv/bin/python scripts/admin.py convo --phone "$(PHONE)" \
+		$(if $(N),--n "$(N)")
 
 # Manually send a WhatsApp message as Ghost (logged to DB)
 # Usage: make send PHONE=33744746977 TEXT="yo"
