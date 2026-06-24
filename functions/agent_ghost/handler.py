@@ -114,8 +114,12 @@ def _run_response_mode(perception_output: dict) -> None:
     decision = _extract_decision(text)
     action = decision.get("action", "nothing")
 
+    message_id = perception_output.get("message_id", "")
     if action == "reply":
-        _dispatch_reply(phone, conv_id, decision)
+        if message_id and _has_newer_messages(phone, message_id):
+            log.info("newer messages exist for %s — skipping reply to avoid double-text", phone)
+        else:
+            _dispatch_reply(phone, conv_id, decision)
     elif action == "defer":
         write_defer_condition(
             phone,
@@ -242,6 +246,20 @@ def _extract_decision(text: str) -> dict:
     except json.JSONDecodeError as exc:
         log.warning("failed to parse ghost_decision: %s", exc)
         return {"action": "nothing", "scratchpad": text[:500]}
+
+
+def _has_newer_messages(phone: str, message_id: str) -> bool:
+    """True if newer messages arrived after message_id — another Ghost run will handle them."""
+    try:
+        result = execute_sql(
+            f"SELECT COUNT(*) AS n FROM messages WHERE contact_phone = '{phone}' "
+            f"AND role = 'contact' "
+            f"AND created_at > (SELECT created_at FROM messages WHERE id = '{message_id}')"
+        )
+        rows = json.loads(result)
+        return rows[0]["n"] > 0 if rows else False
+    except Exception:
+        return False
 
 
 def _dispatch_reply(phone: str, conv_id: str, decision: dict) -> None:
