@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+from db import store_ghost_message
 from whatsapp import mark_read, send_text, set_typing
 
 log = logging.getLogger(__name__)
@@ -42,3 +43,8 @@ def _send(payload: dict) -> None:
         result = send_text(to=to, text=part, reply_to=reply_to if i == 0 else None)
         wamid = (result.get("messages") or [{}])[0].get("id")
         log.info("sent wamid=%s to %s (part %d/%d)", wamid, to, i + 1, len(parts))
+
+    try:
+        store_ghost_message(to, content)
+    except Exception as e:
+        log.warning("failed to store ghost message in DB: %s", e)
