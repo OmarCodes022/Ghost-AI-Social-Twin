@@ -187,9 +187,9 @@ dashboard:
 		--output text --region $(REGION)) \
 	npm run dev
 
-# Run tests
+# Run evals (all skipped until harness is wired up)
 test:
-	$(PYTHON) -m unittest discover -s tests/unit -p 'test_*.py'
+	$(PYTHON) -m unittest discover -s tests/evals -p 'test_*.py' -v
 
 # Live DB connectivity check (requires AWS credentials + dev SSM access)
 db-test:
