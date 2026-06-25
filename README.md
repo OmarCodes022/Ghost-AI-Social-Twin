@@ -30,6 +30,8 @@ Two layers, strictly separated:
 
 **Heartbeat** - Ghost, one invocation per flagged contact. Scratchpad reasoning, optional SQL or RAG retrieval (his choice), then a decision: reach out, reply to a deferred message, stay silent, update his state, revise an intention, or do nothing.
 
+![Architecture](assets/image.png)
+
 Active chat flow:
 
 ```
