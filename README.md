@@ -94,22 +94,22 @@ Memory: Ghost has two tools - SQL for precise structured lookups, RAG via Voyage
 
 Full architecture documented across 17 files in [`/docs`](docs/Ghost%20v2/) - information design, agent architecture, memory system, every flow in detail, database schema, infrastructure, build roadmap. Every decision includes the reasoning trail and explicitly rejected alternatives.
 
-| # | Doc |
-|---|-----|
-| 00 | [Overview](docs/Ghost%20v2/00_OVERVIEW.md) |
-| 01 | [Information Architecture](docs/Ghost%20v2/01_INFORMATION_ARCHITECTURE.md) |
-| 02 | [Delivery Map](docs/Ghost%20v2/02_DELIVERY_MAP.md) |
-| 03 | [Memory System](docs/Ghost%20v2/03_MEMORY_SYSTEM.md) |
-| 04 | [Agent Architecture](docs/Ghost%20v2/04_AGENT_ARCHITECTURE.md) |
-| 05 | [Condition System](docs/Ghost%20v2/05_CONDITION_SYSTEM.md) |
-| 06 | [Active Chat Flow](docs/Ghost%20v2/06_ACTIVE_CHAT_FLOW.md) |
-| 07 | [Pulse Flow](docs/Ghost%20v2/07_PULSE_FLOW.md) |
-| 08 | [Heartbeat Flow](docs/Ghost%20v2/08_HEARTBEAT_FLOW.md) |
-| 09 | [DB Schema](docs/Ghost%20v2/09_DB_SCHEMA.md) |
-| 10 | [Guardrails and Timing](docs/Ghost%20v2/10_GUARDRAILS_AND_TIMING.md) |
-| 11 | [Onboarding - Omar](docs/Ghost%20v2/11_ONBOARDING_OMAR.md) |
-| 12 | [Onboarding - Contacts](docs/Ghost%20v2/12_ONBOARDING_CONTACTS.md) |
-| 13 | [Infrastructure](docs/Ghost%20v2/13_INFRASTRUCTURE.md) |
-| 14 | [Parked Items](docs/Ghost%20v2/14_PARKED_ITEMS.md) |
-| 15 | [Build Roadmap](docs/Ghost%20v2/15_BUILD_ROADMAP.md) |
-| 16 | [Ingestion Pipeline](docs/Ghost%20v2/16_INGESTION_PIPELINE.md) |
+| Doc | What it covers |
+|-----|----------------|
+| [00 - Overview](docs/Ghost%20v2/00_OVERVIEW.md) | Top-level design goals, non-goals, and the core thesis |
+| [01 - Information Architecture](docs/Ghost%20v2/01_INFORMATION_ARCHITECTURE.md) | What Ghost knows, where it lives, how it's structured |
+| [02 - Delivery Map](docs/Ghost%20v2/02_DELIVERY_MAP.md) | How decisions turn into actual sends — timing, ordering, dedup |
+| [03 - Memory System](docs/Ghost%20v2/03_MEMORY_SYSTEM.md) | Memory types, embedding strategy, retrieval design |
+| [04 - Agent Architecture](docs/Ghost%20v2/04_AGENT_ARCHITECTURE.md) | Three agents, their roles, tool access, and interaction model |
+| [05 - Condition System](docs/Ghost%20v2/05_CONDITION_SYSTEM.md) | How defer conditions work and how they resolve |
+| [06 - Active Chat Flow](docs/Ghost%20v2/06_ACTIVE_CHAT_FLOW.md) | Full inbound message pipeline from webhook to reply |
+| [07 - Pulse Flow](docs/Ghost%20v2/07_PULSE_FLOW.md) | How the pulse loop scores contacts and triggers heartbeats |
+| [08 - Heartbeat Flow](docs/Ghost%20v2/08_HEARTBEAT_FLOW.md) | Autonomous outreach — Ghost acting without an incoming message |
+| [09 - DB Schema](docs/Ghost%20v2/09_DB_SCHEMA.md) | All 16 tables, columns, indexes, and rationale |
+| [10 - Guardrails and Timing](docs/Ghost%20v2/10_GUARDRAILS_AND_TIMING.md) | Hard limits on sends, frequency caps, and safety rails |
+| [11 - Onboarding Omar](docs/Ghost%20v2/11_ONBOARDING_OMAR.md) | How to give Ghost Omar's identity, voice, and context |
+| [12 - Onboarding Contacts](docs/Ghost%20v2/12_ONBOARDING_CONTACTS.md) | How to seed relationship context for each contact |
+| [13 - Infrastructure](docs/Ghost%20v2/13_INFRASTRUCTURE.md) | AWS setup, SAM config, secrets, networking |
+| [14 - Parked Items](docs/Ghost%20v2/14_PARKED_ITEMS.md) | Decisions deferred and why |
+| [15 - Build Roadmap](docs/Ghost%20v2/15_BUILD_ROADMAP.md) | What's done, what's next, in order |
+| [16 - Ingestion Pipeline](docs/Ghost%20v2/16_INGESTION_PIPELINE.md) | WhatsApp export, freeform doc, and interview ingest flows |
