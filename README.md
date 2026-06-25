@@ -1,251 +1,115 @@
-# Ghost — AI Social Twin
+# Ghost
 
-Fully autonomous WhatsApp agent that replies as you — with memory, personality, persistent mood, and social intelligence. You stay in the loop via a Telegram side-channel and a local debug dashboard.
+> I gave an AI real autonomy and let it run my social life. It decides who deserves a reply today, who gets left on read, and who it reaches out to first. Without me touching my phone.
 
----
 
-## What it does
 
-Ghost lives inside your WhatsApp and handles conversations on your behalf. It knows who you're talking to, remembers everything about them, mirrors your voice, and decides when to reply, what to say, and when to stay silent. When it's unsure — crisis, real-world request, authenticity challenge — it escalates to you on Telegram with a draft reply you can send, edit, or skip.
+Ghost is an autonomous WhatsApp agent that texts as me. Not a bot that replies when asked - an agent that decides for itself who to contact, when, what to say, and when to stay silent. I don't touch my phone. Ghost handles it.
 
----
+The hard part isn't the replies. It's the autonomy. Most "autonomous" agents have a cron job where the brain should be. Ghost doesn't.
 
-## Architecture
+
+
+## What real autonomy looks like here
+
+**No schedules.** A pulse loop runs every 60–120 seconds, reads real signals - attitude trends, mood, open threads, life events, time of day per contact's timezone - accumulates a weighted score, and only wakes Ghost up when something genuinely warrants attention. Ghost then decides what to do. Including nothing, which is a valid outcome.
+
+**No pre-written replies.** When Ghost decides not to reply now, he writes a *condition* - what would make him reconsider - and sleeps. When it resolves (mood shifted, contact replied, their exam passed), he wakes with fresh context and makes a new decision. He is never executing something he pre-wrote.
+
+**No fixed delay ranges.** Reply timing is a byproduct of Ghost reasoning about the relationship - how fast he's been replying lately, the contact's urgency, his current social battery, his goal for that relationship. The duration falls out of the reasoning.
+
+**No identity fragmentation.** Ghost is one entity across three modes (responding, reflecting, initiating) with a single dynamic system prompt where the job rotates but the identity never does. He tracks his own mood, intentions, and relationship decisions across every contact simultaneously.
+
+
+
+## How it works
+
+Two layers, strictly separated:
+
+**Pulse** - pure logic, no LLM, runs every 60–120s. Reads pre-computed signals, evaluates conditions mechanically, scores every contact, applies hard guardrails, flags what needs attention. Never tries to understand anything.
+
+**Heartbeat** - Ghost, one invocation per flagged contact. Scratchpad reasoning, optional SQL or RAG retrieval (his choice), then a decision: reach out, reply to a deferred message, stay silent, update his state, revise an intention, or do nothing.
+
+Active chat flow:
 
 ```
-WhatsApp webhook
-      ↓
-webhook_receiver        — parse inbound message → invoke orchestrator async
-      ↓
-orchestrator            — Claude agent loop (tool use)
-      │
-      │  RAG: Titan/Voyage embeddings → pgvector identity + contact chunks
-      │
-      │  tools: get_history, save_memory,
-      │         get_contact_profile, update_contact_profile,
-      │         get_mood_state, update_mood,
-      │         delay_reply, request_human_review, update_conversation_arc
-      │
-      ├──→ whatsapp_sender      (auto-send)
-      ├──→ telegram_bot         (escalation → Send / Edit / Skip)
-      └──→ SQS delay queue      (delayed re-invocation)
-
-proactive_engine        — scheduled every 2h, sends follow-ups autonomously
+Message → SQS
+    ↓
+Agent 1 (Haiku) - language, emotion, intent, urgency, attitude shift
+    ↓
+Context assembled - identity, mood, contact profile, history, few-shots
+    ↓
+Ghost (Sonnet) - scratchpad reasoning, optional SQL/RAG
+    ↓
+    ├── Reply now        → queue → typing indicator → reasoned delay → send
+    ├── Consciously wait → writes condition + reasoning, sleeps
+    └── Escalate         → Telegram: Send / Edit / Skip
+    ↓
+Ghost updates mood, stance, intentions inline
+    ↓
+Pulse (every 60-120s, no LLM)
+    ├── Close condition met → conversation closes
+    │       ↓
+    │   Agent 3 (Haiku) - extracts attitude scores, facts,
+    │   unresolved threads, gaps → feeds future pulse cycles
+    │
+    └── Contact score threshold crossed
+            ↓
+        Heartbeat - Ghost decides: reach out, reply to something he
+        waited on, stay silent, update state, or do nothing.
+        All autonomous action originates here.
 ```
 
-**Infrastructure:** API Gateway → Lambda → RDS PostgreSQL 15 + pgvector + SQS + SNS  
-**Secrets:** all via SSM Parameter Store — nothing hardcoded  
-**IaC:** AWS SAM (`template.yaml`)
+Memory: Ghost has two tools - SQL for precise structured lookups, RAG via Voyage-3 multilingual embeddings for semantic retrieval across French, English, and Arabic. He decides which to use. Nothing is auto-injected. He also has a `ghost_custom` table he designed himself. His own schema, we don't touch it.
 
----
+
 
 ## Stack
 
-| Layer | Technology |
+| Layer | What |
 |---|---|
-| Runtime | Python 3.12 |
-| Compute | AWS Lambda |
-| Agent | Strands Agents + Bedrock Claude `anthropic.claude-sonnet-4-20250514-v1:0` |
-| Embeddings | Amazon Titan Text Embeddings v2, with Voyage fallback |
-| Database | RDS PostgreSQL 15 + pgvector |
-| Async queue | SQS (up to 15 min delay) |
-| Event routing | SNS |
-| Secrets | SSM Parameter Store |
-| WhatsApp | Meta Cloud API |
-| Side-channel | Telegram Bot API |
+| Compute | AWS Lambda, one function per job |
+| Queues | 8 SQS queues - every handoff backed by one |
+| Database | RDS PostgreSQL 15 + pgvector, RDS Proxy |
+| LLM | Raw Bedrock API - no LangChain, no Bedrock Agents, no frameworks |
+| Embeddings | Voyage-3 multilingual, `vector(1024)`, one model, no fallback |
 | IaC | AWS SAM |
-| Dashboard | Next.js 15, Tailwind, direct RDS connection |
+| Escalation | Telegram bot, inline Send / Edit / Skip |
 
----
 
-## Project structure
 
-```
-template.yaml                     SAM IaC — all Lambda, SQS, SNS, API GW
-samconfig.toml                    SAM CLI config (dev / prod)
-Makefile                          all commands (see below)
+## Principles
 
-layers/ghost_common/python/
-  ssm.py                          SSM loader with in-process cache
-  db.py                           psycopg2 connection pool + get_cursor()
-  models.py                       all Pydantic v2 models
-  whatsapp.py                     Meta Cloud API client
+**Predictability is failure.** If you can predict what Ghost will do next, the system has failed.
 
-functions/
-  webhook_receiver/               GET verify + POST parse → orchestrator
-  orchestrator/
-    handler.py                    entry point + _process pipeline
-    agent.py                      Strands agent loop, RAG pre-fetch, tool wrappers
-    tools.py                      underlying tool handler functions
-    db_helpers.py                 DB ops, pgvector search, contact/conversation/message/trace helpers
-    dispatch.py                   SQS / Lambda / SNS invocations
-    debug.py                      Telegram dev trace block
-  whatsapp_sender/                sends via Meta Cloud API + typing indicator
-  telegram_bot/                   SNS escalation + Send/Edit/Skip callbacks
-  proactive_engine/               scheduled follow-ups + check-ins
+**Hardcoded = failure.** Any fixed schedule, delay, or template substituting for Ghost's judgment is a bug - even if it works.
 
-migrations/
-  versions/001_initial_schema.py  full schema + pgvector + IVFFlat index
-  versions/002_add_persona_to_knowledge_chunks.py
-  versions/003_add_whatsapp_message_id.py
-  versions/004_ghost_state.py     persistent mood state table
-  versions/005_agent_traces.py    per-reply agent loop trace table
+**A delay is a decision to revisit, not a delayed message.** Ghost never pre-writes and schedules. He sets a condition and decides fresh when it resolves.
 
-scripts/
-  admin.py                        CLI: contact, remember, me, show, contacts, mood, send, proactive
-  ingest_whatsapp.py              WhatsApp export ingestion
+**Prompt control is the product.** No framework touches the core reasoning loop.
 
-dashboard/                        local Next.js debug platform
-  app/
-    page.tsx                      home — stats + ghost state + recent convos
-    conversations/[id]/page.tsx   messages + expandable agent traces ← primary debug view
-    contacts/[phone]/page.tsx     contact editor + memory manager
-    mood/page.tsx                 ghost state editor
-  components/
-    TraceBlock.tsx                collapsible tool call trace
-    MoodPanel.tsx                 ghost state display
-  lib/db.ts                       direct RDS connection
-```
 
----
 
-## SSM parameters
+## Docs
 
-```
-/ghost/{env}/whatsapp/token
-/ghost/{env}/whatsapp/phone_number_id
-/ghost/{env}/whatsapp/verify_token
-/ghost/{env}/anthropic/api_key
-/ghost/{env}/voyage/api_key
-/ghost/{env}/telegram/bot_token
-/ghost/{env}/telegram/chat_id
-/ghost/{env}/db/connection_string
-```
+Full architecture documented across 17 files in `/docs` - information design, agent architecture, memory system, every flow in detail, database schema, infrastructure, build roadmap. Every decision includes the reasoning trail and explicitly rejected alternatives.
 
----
-
-## Makefile commands
-
-```bash
-make deploy-dev          # SAM build + deploy to dev
-make deploy-prod         # SAM build + deploy to prod (with confirmation)
-make update              # fast handler-only push (zip + lambda update-function-code)
-make migrate             # run Alembic migrations (requires DATABASE_URL env var)
-make layer-install       # install layer deps (manylinux wheels for Lambda)
-
-make dashboard-install   # npm install inside dashboard/
-make dashboard           # fetch DATABASE_URL from SSM + start Next.js dev server
-
-make contact   PHONE=33744746977 NAME="Alice" TIER=1
-make remember  PHONE=33744746977 TEXT="Has a dog called Max"
-make me        TEXT="I hate small talk"
-make show      PHONE=33744746977
-make contacts
-make send      PHONE=33744746977 TEXT="yo"
-make mood
-make mood      NOTES="bad week" AVAILABILITY=light ENERGY=0.4
-make proactive PHONES=33652469989,33664970571
-
-make db                  # live psql session against dev DB
-make test                # run local test suite
-make db-test             # live DB + pgvector connectivity check
-make telegram-webhook    # register Telegram webhook URL (run once after deploy)
-```
-
----
-
-## Setup
-
-**1. Layer dependencies** (Linux-compatible wheels for Lambda)
-```bash
-make layer-install
-```
-
-**2. DB migrations**
-```bash
-export DATABASE_URL=$(aws ssm get-parameter \
-  --name /ghost/dev/db/connection_string \
-  --with-decryption --query Parameter.Value --output text --region eu-west-1)
-make migrate
-```
-
-**3. Deploy**
-```bash
-make deploy-dev
-```
-
-**4. Dashboard**
-```bash
-make dashboard-install
-make dashboard   # auto-fetches DATABASE_URL from SSM
-```
-
----
-
-## WhatsApp token rotation
-
-Tokens expire every ~24h. Update:
-
-```bash
-aws ssm put-parameter \
-  --name "/ghost/dev/whatsapp/token" \
-  --value "NEW_TOKEN" \
-  --type SecureString --overwrite --region eu-west-1
-```
-
-Force Lambda cold starts to flush SSM cache:
-
-```bash
-for fn in ghost-webhook-receiver-dev ghost-orchestrator-dev ghost-whatsapp-sender-dev; do
-  aws lambda update-function-configuration \
-    --function-name $fn --region eu-west-1 \
-    --environment "Variables={RELOAD=$(date +%s)}"
-done
-```
-
----
-
-## How Ghost thinks
-
-Each inbound message triggers a Strands agent loop backed by Claude. Before the model runs, Ghost embeds the current message burst, preloads the most relevant identity chunks and contact memories from pgvector, and falls back to unfiltered persona identity chunks if embeddings are unavailable.
-
-Claude then has 9 tools:
-
-| Tool | What it does |
-|---|---|
-| `get_history` | fetch recent conversation messages |
-| `get_contact_profile` | name, tier, voice profile, notes |
-| `save_memory` | write and embed a new knowledge chunk |
-| `update_contact_profile` | update name / tier / notes |
-| `get_mood_state` | read persistent ghost_state |
-| `update_mood` | update energy / battery / load / availability |
-| `delay_reply` | exit loop and re-invoke via SQS after N seconds |
-| `request_human_review` | exit loop and escalate to Telegram |
-| `update_conversation_arc` | mark conversation open / flowing / winding_down / dormant |
-
-Claude decides what it needs. It fetches history only when relevant, saves new memories when it learns something, updates mood after heavy exchanges, and delays or escalates when warranted.
-
----
-
-## Roadmap
-
-### Done ✓
-- Full agent loop (Claude with 9 tools)
-- Strands-based agent loop with native Python tool wrappers
-- pgvector semantic memory pre-fetch via Titan embeddings, with Voyage fallback
-- Persistent ghost_state (mood/energy/battery managed by Claude + admin CLI)
-- Burst detection, deduplication, advisory lock
-- SQS delay queue
-- Telegram escalation with Send / Edit / Skip
-- Proactive engine (scheduled follow-ups + check-ins)
-- WhatsApp export ingestion + voice profile extraction
-- Local Next.js debug dashboard with live agent traces
-- Admin CLI (`make contact / remember / me / mood / send / proactive`)
-
-### Remaining
-- Backfill embeddings for older unembedded knowledge_chunks
-- Confidence-based auto-escalation (currently always 1.0)
-- Override learning loop (Telegram edits → behavioral knowledge_chunks)
-- Conversation arc tracker (state machine per conversation)
-- Long-delay support (DynamoDB TTL for delays >15 min)
-- Calendar integration (meeting-heavy days → low engagement mode)
+| # | Doc |
+|---|-----|
+| 00 | [Overview](docs/Ghost%20v2/00_OVERVIEW.md) |
+| 01 | [Information Architecture](docs/Ghost%20v2/01_INFORMATION_ARCHITECTURE.md) |
+| 02 | [Delivery Map](docs/Ghost%20v2/02_DELIVERY_MAP.md) |
+| 03 | [Memory System](docs/Ghost%20v2/03_MEMORY_SYSTEM.md) |
+| 04 | [Agent Architecture](docs/Ghost%20v2/04_AGENT_ARCHITECTURE.md) |
+| 05 | [Condition System](docs/Ghost%20v2/05_CONDITION_SYSTEM.md) |
+| 06 | [Active Chat Flow](docs/Ghost%20v2/06_ACTIVE_CHAT_FLOW.md) |
+| 07 | [Pulse Flow](docs/Ghost%20v2/07_PULSE_FLOW.md) |
+| 08 | [Heartbeat Flow](docs/Ghost%20v2/08_HEARTBEAT_FLOW.md) |
+| 09 | [DB Schema](docs/Ghost%20v2/09_DB_SCHEMA.md) |
+| 10 | [Guardrails and Timing](docs/Ghost%20v2/10_GUARDRAILS_AND_TIMING.md) |
+| 11 | [Onboarding - Omar](docs/Ghost%20v2/11_ONBOARDING_OMAR.md) |
+| 12 | [Onboarding - Contacts](docs/Ghost%20v2/12_ONBOARDING_CONTACTS.md) |
+| 13 | [Infrastructure](docs/Ghost%20v2/13_INFRASTRUCTURE.md) |
+| 14 | [Parked Items](docs/Ghost%20v2/14_PARKED_ITEMS.md) |
+| 15 | [Build Roadmap](docs/Ghost%20v2/15_BUILD_ROADMAP.md) |
+| 16 | [Ingestion Pipeline](docs/Ghost%20v2/16_INGESTION_PIPELINE.md) |
