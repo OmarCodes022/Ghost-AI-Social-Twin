@@ -39,13 +39,22 @@ def lambda_handler(event, context):
 
 
 def _handle_escalation(payload: dict) -> None:
+    phone = payload.get("contact_phone", "")
+    name = payload.get("contact_name", phone)
+    msg = payload.get("content", "")
+    reason = payload.get("reason", "")
+    try:
+        from db import write_escalation
+        write_escalation(phone, name, msg, reason)
+    except Exception as exc:
+        log.warning("failed to write escalation to DB: %s", exc)
     _channel.send_escalation(
-        contact_name=payload.get("contact_name", payload.get("contact_phone", "Unknown")),
-        contact_phone=payload.get("contact_phone", ""),
-        message=payload.get("content", ""),
-        reason=payload.get("reason", ""),
+        contact_name=name,
+        contact_phone=phone,
+        message=msg,
+        reason=reason,
     )
-    log.info("escalation sent for %s", payload.get("contact_phone"))
+    log.info("escalation sent for %s", phone)
 
 
 def _execute(cmd: Command) -> None:

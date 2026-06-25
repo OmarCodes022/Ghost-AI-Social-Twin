@@ -178,13 +178,19 @@ ingest:
 dashboard-install:
 	cd dashboard && npm install
 
-# Start the Next.js dashboard dev server (fetches DATABASE_URL from SSM)
+# Start the Next.js dashboard dev server
 dashboard:
 	@cd dashboard && \
 	DATABASE_URL=$$(aws ssm get-parameter \
 		--name /ghost/$(ENV)/db/connection_string \
 		--with-decryption --query Parameter.Value \
 		--output text --region $(REGION)) \
+	OUTBOUND_QUEUE_URL=$$(aws cloudformation describe-stacks \
+		--stack-name ghost-$(ENV) --region $(REGION) \
+		--query "Stacks[0].Outputs[?OutputKey=='OutboundQueueUrl'].OutputValue" \
+		--output text) \
+	AWS_REGION=$(REGION) \
+	ENV=$(ENV) \
 	npm run dev
 
 # Run evals (all skipped until harness is wired up)
