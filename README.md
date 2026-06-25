@@ -92,7 +92,7 @@ Memory: Ghost has two tools - SQL for precise structured lookups, RAG via Voyage
 
 ## Docs
 
-Full architecture documented across 17 files in `/docs` - information design, agent architecture, memory system, every flow in detail, database schema, infrastructure, build roadmap. Every decision includes the reasoning trail and explicitly rejected alternatives.
+Full architecture documented across 17 files in [`/docs`](docs/Ghost%20v2/) - information design, agent architecture, memory system, every flow in detail, database schema, infrastructure, build roadmap. Every decision includes the reasoning trail and explicitly rejected alternatives.
 
 | # | Doc |
 |---|-----|
