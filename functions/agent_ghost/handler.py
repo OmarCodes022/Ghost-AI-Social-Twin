@@ -251,13 +251,15 @@ def _extract_decision(text: str) -> dict:
 def _has_newer_messages(phone: str, message_id: str) -> bool:
     """True if newer messages arrived after message_id — another Ghost run will handle them."""
     try:
-        result = execute_sql(
-            f"SELECT COUNT(*) AS n FROM messages WHERE contact_phone = '{phone}' "
-            f"AND role = 'contact' "
-            f"AND created_at > (SELECT created_at FROM messages WHERE id = '{message_id}')"
-        )
-        rows = json.loads(result)
-        return rows[0]["n"] > 0 if rows else False
+        from db import _get_conn
+        conn = _get_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM messages WHERE contact_phone = %s AND role = 'contact' "
+                "AND created_at > (SELECT created_at FROM messages WHERE id = %s)",
+                (phone, message_id),
+            )
+            return (cur.fetchone()[0] or 0) > 0
     except Exception:
         return False
 
