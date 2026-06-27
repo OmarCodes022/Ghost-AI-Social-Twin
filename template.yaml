@@ -372,3 +372,5 @@ Outputs:
     Value: !Ref OutboundMessageQueue
   PulseQueueUrl:
     Value: !Ref PulseQueue
+  HeartbeatQueueUrl:
+    Value: !Ref HeartbeatQueue
