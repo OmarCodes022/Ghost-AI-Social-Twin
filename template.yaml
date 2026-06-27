@@ -56,6 +56,15 @@ Resources:
     Properties:
       QueueName: !Sub ghost-perception-output-queue-${Env}
       VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PerceptionOutputDLQ.Arn
+        maxReceiveCount: 3
+
+  PerceptionOutputDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-perception-output-dlq-${Env}
+      MessageRetentionPeriod: 1209600
 
   OutboundMessageQueue:
     Type: AWS::SQS::Queue
@@ -64,30 +73,76 @@ Resources:
       FifoQueue: true
       ContentBasedDeduplication: false
       VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt OutboundMessageDLQ.Arn
+        maxReceiveCount: 3
+
+  OutboundMessageDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-outbound-message-dlq-${Env}.fifo
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
 
   HeartbeatQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-heartbeat-queue-${Env}
       VisibilityTimeout: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HeartbeatDLQ.Arn
+        maxReceiveCount: 3
+
+  HeartbeatDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-heartbeat-dlq-${Env}
+      MessageRetentionPeriod: 1209600
 
   MemoryProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-memory-processing-queue-${Env}
       VisibilityTimeout: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt MemoryProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  MemoryProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-memory-processing-dlq-${Env}
+      MessageRetentionPeriod: 1209600
 
   PulseQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-pulse-queue-${Env}
       VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PulseDLQ.Arn
+        maxReceiveCount: 3
+
+  PulseDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-pulse-dlq-${Env}
+      MessageRetentionPeriod: 1209600
 
   EscalationQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ghost-escalation-queue-${Env}
       VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EscalationDLQ.Arn
+        maxReceiveCount: 2
+
+  EscalationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ghost-escalation-dlq-${Env}
+      MessageRetentionPeriod: 1209600
 
   # ── SNS ───────────────────────────────────────────────────────────────────
 
