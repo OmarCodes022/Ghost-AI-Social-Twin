@@ -1,5 +1,9 @@
 from datetime import datetime, timezone
 
+
+def _utc(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
 # Tunable - adjust post-launch without code changes by extracting to SSM config if needed
 WEIGHTS = {
     "recency": 0.25,
@@ -19,7 +23,7 @@ def _recency(contact: dict, now: datetime) -> float:
     last_at = contact.get("last_interaction_at")
     if not baseline or baseline <= 0 or not last_at:
         return 0.0
-    elapsed_days = (now - last_at).total_seconds() / 86400
+    elapsed_days = (now - _utc(last_at)).total_seconds() / 86400
     ratio = elapsed_days / baseline
     return min(1.0, max(0.0, ratio - 1.0))  # 0 until overdue, then climbs
 
@@ -39,7 +43,7 @@ def _unanswered(contact: dict, now: datetime) -> float:
     since = contact.get("unanswered_since")
     if not since:
         return 0.5
-    hours = (now - since).total_seconds() / 3600
+    hours = (now - _utc(since)).total_seconds() / 3600
     return min(1.0, 0.5 + hours / 48.0)  # grows from 0.5 to 1.0 over 48 hours
 
 

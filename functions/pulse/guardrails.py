@@ -1,4 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _utc(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 # Hard limits for Ghost-initiated outreach only - never applied to replies
 SLEEP_START_HOUR = 23   # 11 PM UTC
@@ -17,7 +21,7 @@ def is_outreach_allowed(contact: dict, now: datetime) -> bool:
 
     last_hb = contact.get("last_heartbeat_at")
     if last_hb:
-        hours_since = (now - last_hb).total_seconds() / 3600
+        hours_since = (now - _utc(last_hb)).total_seconds() / 3600
         if hours_since < MIN_HEARTBEAT_SPACING_HOURS:
             return False
 

@@ -1,6 +1,11 @@
 from datetime import datetime, timezone
 
 
+def _utc(dt: datetime) -> datetime:
+    """Coerce a naive datetime to UTC-aware. Postgres returns naive datetimes by default."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
 def evaluate_condition(condition: dict, ctx: dict, now: datetime) -> bool:
     """
     Evaluate one structured condition against current state. Pure logic, no LLM.
@@ -16,7 +21,7 @@ def evaluate_condition(condition: dict, ctx: dict, now: datetime) -> bool:
     ctype = condition.get("type")
 
     if ctype == "time_elapsed":
-        elapsed = (now - ctx["created_at"]).total_seconds()
+        elapsed = (now - _utc(ctx["created_at"])).total_seconds()
         return elapsed >= condition["minutes"] * 60
 
     elif ctype == "time_of_day":
@@ -33,14 +38,14 @@ def evaluate_condition(condition: dict, ctx: dict, now: datetime) -> bool:
         return (
             last_at is not None
             and contact.get("last_interaction_role") == "contact"
-            and last_at > ctx["created_at"]
+            and _utc(last_at) > _utc(ctx["created_at"])
         )
 
     elif ctype == "no_message_received":
         last_at = ctx["contact"].get("last_interaction_at")
         if not last_at:
             return True
-        return (now - last_at).total_seconds() >= condition.get("hours", 24) * 3600
+        return (now - _utc(last_at)).total_seconds() >= condition.get("hours", 24) * 3600
 
     elif ctype == "message_count":
         return ctx.get("messages_since_condition", 0) >= condition.get("count", 1)
