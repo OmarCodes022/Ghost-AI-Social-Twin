@@ -58,6 +58,8 @@ This is the area most heavily revised from an initial draft during design — ev
 | `escalation-queue` | SNS subscriber, feeds the Telegram bot | Standard queue, gives retry on Telegram API failures that a raw SNS-to-Lambda subscription wouldn't |
 | `world-ingestion-queue` 🔲 | Parked | See `14_PARKED_ITEMS.md` |
 
+`pulse-queue` starts empty on a fresh deploy, and nothing would ever send it a first message since the loop only perpetuates itself once running. `template.yaml` seeds it automatically with a `Custom::PulseLoopSeed` resource (backed by `ghost-pulse-seeder`) that fires exactly once, on stack **creation** only - `Update`/`Delete` are no-ops so redeploys never enqueue a second message and spin up a concurrent loop.
+
 **8 queues total.** Every handoff identified across `06`, `07`, and `08` is backed by exactly one of these.
 
 ---
