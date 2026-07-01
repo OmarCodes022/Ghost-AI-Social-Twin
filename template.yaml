@@ -290,6 +290,30 @@ Resources:
         - SSMParameterReadPolicy:
             ParameterName: !Sub ghost/${Env}/*
 
+  # Custom resource that seeds pulse-queue with the first message on stack
+  # creation only, so the self-perpetuating pulse loop starts on its own -
+  # no manual SQS send-message step required after deploy.
+  GhostPulseSeeder:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ghost-pulse-seeder-${Env}
+      CodeUri: functions/pulse_seeder/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      Environment:
+        Variables:
+          PULSE_QUEUE_URL: !Ref PulseQueue
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt PulseQueue.QueueName
+
+  PulseLoopSeed:
+    Type: Custom::PulseLoopSeed
+    DependsOn: GhostPulse
+    Properties:
+      ServiceToken: !GetAtt GhostPulseSeeder.Arn
+      PulseQueueUrl: !Ref PulseQueue
+
   GhostWhatsappSender:
     Type: AWS::Serverless::Function
     Properties:
