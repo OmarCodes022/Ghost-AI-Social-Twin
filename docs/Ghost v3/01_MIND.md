@@ -1,7 +1,7 @@
 # 01: Mind
 
-Status: in progress. Covers so far: how Ghost decides to act (D-015, D-016, D-018) and feelings (D-017).
-Still to come: sleep, forgetting, parallel chats, tier map, persona vs override, memory audience rules.
+Status: in progress. Covers so far: acting (D-015, D-016, D-018), feelings (D-017), sleep (D-019), fading (D-020), parallel chats (D-021), tier map (D-022).
+Still to come: persona vs override, memory audience rules, tools, one agent vs many.
 
 ## The four parts
 
@@ -95,3 +95,53 @@ v2 had the right skeleton but `functions/pulse/scoring.py`:
 - buried hot news: one intention added 0.05 against a 0.65 threshold;
 - hardcoded the judgment in `WEIGHTS` and fixed good hours;
 - woke the heartbeat with only `"threshold_crossed"`, so Sonnet started blind.
+
+## Sleep
+
+- Ghost decides when he sleeps, from his energy. No fixed bedtime.
+- The owner can put him to sleep or wake him from the app.
+- Asleep, he doesn't reply. Nothing wakes him (for now). Messages wait.
+- On waking he gets through the backlog slowly, not all at once.
+- No naps.
+- **Dreaming** is one batched pass during sleep: consolidate memory, find links the intake step missed and write signals for tomorrow, retune baselines and rates, reset core affect.
+
+## Fading (not forgetting)
+
+RAG already keeps the context window small, so fading is not about space. It is about **relevance**:
+
+1. **Ranking.** Over years, old and outdated memories compete with fresh ones in search ("Ahmed's girlfriend" should return the current one). Strength is part of the ranking.
+2. **What surfaces on its own.** Random recall, outreach ideas and nostalgia pick from strong memories, so he doesn't bring up a 3-year-old detail out of nowhere unless it mattered.
+3. **Focus.** Strength keeps the heartbeat's context on what matters now.
+
+In a chat, a direct cue ("remember the trip?") still finds a faded memory, because fading changes rank, not existence.
+
+- Memories have a strength: it fades slowly (he forgets less than a human), recall and mentions raise it, emotional and important memories fade slower.
+- Outdated facts are **superseded** in dreams (Sara moved: the old city becomes history), not deleted.
+- Locked memories never fade.
+- No misremembering.
+- Only the owner can truly delete a memory, manually.
+
+## Parallel chats
+
+- Several heartbeats run at once, one per contact, on the same live state (one mind, D-006).
+- One heartbeat per contact at a time.
+- **Bursts are one turn.** Messages from the same person are grouped and answered together. The answer can be one message or several; Ghost decides. When a burst is "done" is an instinct call (typing indicator, gaps), detailed in Body (session 3).
+
+## Tier map
+
+Each decision starts at the lowest tier that can make it; low confidence escalates.
+
+| Decision | Tier |
+|----------|------|
+| Drift feelings, fade signals, check thresholds | Reflex |
+| Owner takeover? Contact assigned? | Reflex |
+| Intake: is this worth a signal, feeling change or memory? | Instinct (dreams catch misses) |
+| Act on a signal now, later, or drop it | Instinct |
+| Is this burst done? | Instinct |
+| Who to text when bored (shortlist) | Instinct |
+| Ghost-to-Ghost loop? | Instinct |
+| React only, or write? | Instinct |
+| Write the message, pick media | Thought |
+| Final pick of who and what when bored | Thought |
+| Dreaming | Thought (batched) |
+| Change his own baselines, invent a feeling | Thought |
