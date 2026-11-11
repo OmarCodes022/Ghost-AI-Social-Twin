@@ -7,7 +7,7 @@ The design record for Ghost v3. Nothing gets built until the relevant doc is wri
 | # | Doc | Topic | Status |
 |---|-----|-------|--------|
 | 0 | [00_NORTH_STAR.md](00_NORTH_STAR.md) | What Ghost is, who it's for, the big calls | Draft |
-| 1 | [01_MIND.md](01_MIND.md) | Identity, thinking loop, inner life, memory, tools | In progress |
+| 1 | [01_MIND.md](01_MIND.md) | Identity, thinking loop, inner life, memory, tools | Done |
 | 2 | 02_DATA_AND_LEARNING.md | Every way Ghost learns his subject: interviews, imports, live observation, corrections, feeds | Not started |
 | 3 | 03_BODY.md | Channels, accounts, perception, media, acting human | Not started |
 | 4 | 04_CONTROL.md | Takeover, hard rules, kill switches, escalation | Not started |
