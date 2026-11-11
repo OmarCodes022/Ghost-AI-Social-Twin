@@ -1,7 +1,6 @@
 # 01: Mind
 
-Status: in progress. Covers so far: acting (D-015, D-016, D-018), feelings (D-017), sleep (D-019), fading (D-020), parallel chats (D-021), tier map (D-022).
-Still to come: persona vs override, memory audience rules, tools, one agent vs many.
+Status: done. Decisions D-015 to D-027.
 
 ## The four parts
 
@@ -135,7 +134,8 @@ Each decision starts at the lowest tier that can make it; low confidence escalat
 |----------|------|
 | Drift feelings, fade signals, check thresholds | Reflex |
 | Owner takeover? Contact assigned? | Reflex |
-| Intake: is this worth a signal, feeling change or memory? | Instinct (dreams catch misses) |
+| Intake of messages and ended-chat summaries | Thought (D-027) |
+| Intake of feeds, news, presence | Instinct, escalates when unsure (D-027) |
 | Act on a signal now, later, or drop it | Instinct |
 | Is this burst done? | Instinct |
 | Who to text when bored (shortlist) | Instinct |
@@ -145,3 +145,53 @@ Each decision starts at the lowest tier that can make it; low confidence escalat
 | Final pick of who and what when bored | Thought |
 | Dreaming | Thought (batched) |
 | Change his own baselines, invent a feeling | Thought |
+
+## Style: how he sounds like his subject
+
+Adjectives alone ("tone: chill") make a generic AI. Style has three parts, strongest first:
+
+1. **Real examples.** For each reply, the Heartbeat gets a few of the subject's real messages from similar situations (same person or kind of person, same mood).
+2. **Fingerprint**, measured from real chats, every field a number or a list:
+   - message length, and how one thought splits into several bubbles
+   - capitals and punctuation
+   - shortcuts and misspellings (`u`, `ig`, `prob`, `deffo`)
+   - signature phrases
+   - language mix and when it switches
+   - laughter style
+   - exact emojis and stickers, and how often
+   - questions vs statements, double texting, voice notes vs text
+   - reply speed by person and time of day
+3. **Soft traits:** humor, flirtiness, how open he is, topics liked or avoided.
+
+**Same structure at three levels:** base (all chats), persona (a kind of relationship), override (one contact). A fingerprint can be computed at each level, so Ghost learns overrides from real history; the owner can also edit them and lock any field.
+
+**Measurable:** the lab scores every reply against the fingerprint, so drift is a number, not a feeling. Extraction from chat exports is session 2.
+
+Facts (nicknames, inside jokes, who someone is) stay in memory, never in style (D-004).
+
+## Secrets: audience rules
+
+Every memory has an audience: everyone, close people, certain people, never these people, owner only.
+
+- Intake guesses it: **shareable unless it sounds private**.
+- Ghost can adjust it later (dreams).
+- The owner can set or lock it. **Owner locks are hard; Ghost's own guesses are soft** (he may break them, D-018).
+- He gossips with close people like a normal person would.
+
+## Tools
+
+- Starting areas: memory (RAG, SQL, write), mind (signals, feelings, sleep), talk (text, media, GIF, reactions, read state), world (feeds, stories, news, web search).
+- Open-ended: the owner adds tools, Ghost can ask for tools, and Ghost can build his own (like v2's `ghost_custom`).
+- Web search is free to use anytime.
+- Full catalog: session 3 (Body).
+
+## One identity, several workers
+
+| Worker | Job | Model |
+|--------|-----|-------|
+| Intake | turns what comes in into memory, signals, feelings | messages and chat summaries: strong; feeds, news, presence: instinct, escalates when unsure |
+| Pulse | always-on loop | none |
+| Heartbeat | thinks and talks | strong |
+| Dreamer | sleep batch | strong, batched |
+
+All workers share one mind; none has its own personality; only the Heartbeat speaks. No draft-and-fix pass: the first answer is the answer. Exact models: session 7.
