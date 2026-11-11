@@ -11,7 +11,7 @@ Parked questions. Each one names the session that should settle it.
 | Q-005 | Exact split between persona fields and override fields. | 1 |
 | Q-006 | How memory audience rules work in practice (who sets them, Ghost or owner, defaults). | 1 |
 | Q-007 | Budget number for the personal phase, and what "alive" looks like at that budget. | 7 |
-| Q-008 | Sleep: does he stop replying, or is he fully off? Moods: they change tone, response time and more, and move with conversations and many other variables. Needs a full mechanic. | 1 |
+| Q-008 | Sleep: does he stop replying, or is he fully off? (Moods settled by D-017.) | 1 |
 | Q-009 | Instinct tier tool: Jev (closed source, Sep 2026, one small eval: 89.6% accuracy, 1.6% confidently wrong) vs OpenAI's decision API (Omar's suggestion, to evaluate). Must sit behind our own interface so it can be swapped. | 7 |
 | Q-010 | Which decisions go to which tier (full map of instinct use cases). | 1 |
 | Q-011 | Brake against runaway Ghost-to-Ghost loops (detection, what happens when it fires). | 4 |
