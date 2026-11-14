@@ -12,7 +12,8 @@ The design record for Ghost v3. Nothing gets built until the relevant doc is wri
 | 3 | [03_BODY.md](03_BODY.md) | Channels, accounts, perception, media, acting human | Done |
 | 4 | [04_CONTROL.md](04_CONTROL.md) | Takeover, hard rules, kill switches, escalation | Done |
 | 5 | [05_LAB.md](05_LAB.md) | Internal debug dashboard: how Ghost thinks, live | Done |
-| 6 | 06_PRODUCT.md | The app: users, onboarding, personas, accounts | Not started |
+| 6 | [06_PRODUCT.md](06_PRODUCT.md) | The app: screens, talking to Ghost, onboarding, trust, sharing | Done |
+| 6b | Prototype | Clickable screens with real-feeling data, before architecture | Not started |
 | 7 | 07_ARCHITECTURE.md | Stack, hosting, models, storage | Not started |
 | 8 | 08_ROADMAP.md | First end-to-end slice, then layers | Not started |
 
