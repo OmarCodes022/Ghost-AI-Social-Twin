@@ -18,3 +18,6 @@ Parked questions. Each one names the session that should settle it.
 | Q-012 | How the style fingerprint and example bank are extracted from chat exports (per base, persona, contact). | 2 |
 | Q-013 | Full tool catalog, and how Ghost asks for or builds a tool. | 3 |
 | Q-014 | Exact models per worker (strong model for intake, heartbeat, dreamer) within budget. | 7 |
+| Q-015 | How much history WhatsApp (and others) send to a newly linked device, and how to read it. | 3 |
+| Q-016 | Per-chat learning exclusion: off for now; revisit before going public. | 4 / 6 |
+| Q-017 | ~~Final list of data kinds.~~ Resolved by D-036. | 2 |
