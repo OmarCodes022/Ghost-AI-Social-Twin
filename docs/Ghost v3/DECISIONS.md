@@ -62,3 +62,8 @@ Locked decisions, newest last. Changing one means a new entry that supersedes it
 | D-056 | 2026-11-14 | The app is a normal chat app: the owner texts contacts as himself and instructs Ghost in the same place (signals, goals, override changes, memories, exact texts sent as is). | One place to live and steer. |
 | D-057 | 2026-11-14 | Ghost-to-Ghost conversations get no special brake; another Ghost is a contact like any other, and conversations end through energy, social battery and boredom, with the health watch warning on volume. Resolves Q-011. | No special cases; the mind already ends conversations. |
 | D-058 | 2026-11-14 | No spending cap for now (budget in session 7). Q-004 and Q-016 move to session 6. | Keep control minimal during personal testing. |
+| D-059 | 2026-11-14 | Every worker writes structured events from day one, linked into chains (message, heartbeat, signal, cause). The lab is views on these events. | Unsaved thinking can never be explained later; v2 could not. |
+| D-060 | 2026-11-14 | First lab views: Why? (full chain behind any message), Live mind, Stream. Later: Memory, People, Quality, Cost, Data. | Explaining a message is the core debugging need. |
+| D-061 | 2026-11-14 | The lab can inject events, edit state, rerun any past heartbeat with one change, force ticks, fast-forward time in a sandbox, and use sandbox contacts. | You can't debug a mind by waiting for real life. |
+| D-062 | 2026-11-14 | The lab is a separate internal web dashboard, never part of the user app. | Raw prompts and internals don't belong in the product. |
+| D-063 | 2026-11-14 | Keep all events during personal testing; at scale, full detail for a recent window then summaries (window set in session 7). | Cheap now, decided properly with the stack. |
