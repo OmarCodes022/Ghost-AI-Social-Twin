@@ -1,7 +1,6 @@
 # 03: Body
 
-Status: in progress. Covers so far: channels, connections, senses, acting human (D-042 to D-047).
-Still to come: group chats, ban risk (Q-003), tool catalog (Q-013).
+Status: done. Decisions D-042 to D-050.
 
 The mind decides **what**. The body decides **how it lands** on each platform and what he can **sense** there.
 
@@ -71,3 +70,36 @@ Every behaviour comes from his fingerprint and feelings, never a fixed rule (D-0
 | Voice notes when lazy | once voice cloning exists |
 
 **He has his own life and can lie.** "Sorry, was at the gym." Every excuse or invented plan is saved as a memory with an audience, so he stays consistent with whoever he told.
+
+## Group chats
+
+- A group is assigned like a contact: Ghost + persona + overrides (D-012).
+- How active he is comes from the subject's fingerprint **in that group**.
+- Mentions, replies to him and questions to him are strong signals.
+- **Secrets:** he only says what every member may hear (D-024). The strictest member sets the line.
+- He can carry a group moment into a DM.
+- Group messages feed People memory for every member.
+- He joins, leaves and creates groups himself.
+
+## Not getting banned (light for now)
+
+Being human already covers most of it: sleep (D-019), delays and typing (D-045), no templates (D-018).
+
+- **Account health watch** (reflex): compares activity per account with the subject's own normal range (messages per hour, new people per day, blocks). Above it, the app **warns** the owner. It does not slow Ghost down.
+- Bans and restrictions show in the app like a dropped connection (D-043).
+- Kept minimal while Omar is the only tester; revisit when scaling (Q-003).
+
+## Tools
+
+| Area | Tools |
+|------|-------|
+| Memory | search (RAG), query (SQL), remember, update, supersede, link people across platforms |
+| Mind | write, edit, drop signals; adjust feelings; set goals; notes to self; sleep and wake; "check back when..." conditions |
+| Talk | text, bubbles, uploaded media, GIF and sticker search, react, quote reply, edit, delete, forward, read or leave unread, typing, presence, decline a call; voice notes later |
+| Groups | join, leave, create, add people |
+| World | web search, read a page, news, contacts' stories and posts, profiles and status, weather, time zones, holidays and birthdays |
+| Owner | message the owner in the app, ask a question, mention what he learned |
+| Self-made | his own tables and queries, small scripts in a sandbox, ask for a new tool |
+
+- He builds freely inside his sandbox (only his own data).
+- Tools that reach outside (new platform actions, money, outside services) he asks for; the owner approves (session 4).
