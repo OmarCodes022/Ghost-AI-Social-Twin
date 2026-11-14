@@ -1,7 +1,6 @@
 # 02: Data and learning
 
-Status: in progress. Covers so far: kinds of data, onboarding, rehearsal, languages, live data, media, sources (D-028 to D-036).
-Still to come: extraction (Q-012), learning loop, testing that he is really you.
+Status: done. Decisions D-028 to D-041.
 
 Design rule for this session: it must work for **any** user (any language, any platform, little data, no patience), not just Omar.
 
@@ -97,3 +96,56 @@ The owner can mark a contact as a **stranger**, set a **goal** (make a friend, g
 | Telegram | export, live | maybe |
 | Notes, docs, journals | upload | no |
 | Social posts | the account | feeds |
+
+## Extraction: chats into a Ghost
+
+Each step uses the cheapest thing that can do it.
+
+| Step | What | Done by |
+|------|------|---------|
+| 1. Parse | read exports, tell the subject's messages from others' | code |
+| 2. Cut | split history into conversations by time gaps | code |
+| 3. Fingerprint | lengths, emojis, shortcuts, language mix, timing; per language and per contact | code, no model |
+| 4. Example bank | each subject reply with what came before, tagged (contact, language, situation), searchable | code + embeddings |
+| 5. Triage | "anything worth remembering here?" | cheap model |
+| 6. Understand | Me, People, Taste facts from flagged conversations, tagged by who said it | strong model |
+| 7. Connect | merge people across platforms, order facts in time, newest wins | strong model, batched |
+
+- Voice is mostly code: cheap and exact. The strong model reads only conversations that matter.
+- Live intake stays on the strong model (D-027): a trickle. Imports are a flood, so they get triage.
+- **Same person across platforms:** Ghost links them himself; the owner can also link or unlink.
+- **Personas, proposed:** Ghost groups contacts the subject texts the same way and proposes personas. The owner names, approves or ignores them.
+
+## Learning loop
+
+| Source | Strength |
+|--------|----------|
+| Owner's manual replies | strongest |
+| Owner's corrections (typed: what he'd actually say) | strong |
+| Rehearsal answers | strong, a bit below real messages |
+| New live chats | normal |
+| How contacts react | normal |
+
+- **Instantly:** new examples, new facts.
+- **In dreams:** fingerprint recount, persona and override tweaks (unlocked fields only), feeling baselines.
+- He tells the owner what he learned, lightly and only where it fits naturally (for example, in the rehearsal chat). No reports, no bloat.
+
+**Rule 1: Voice is learned only from the subject's real messages, never from Ghost's own.** His own chats still teach facts. Otherwise small mistakes get copied until he becomes a parody.
+
+**Rule 2: reactions adjust how he handles each person, not who he is.** He spots patterns (Sara ignores voice notes, Ahmed replies more to memes, late texts land badly with Youssef) and adapts timing, topics and format per contact, like a person does. The base voice comes only from Rule 1, so he adapts without turning into a people pleaser. Busted moments ("is this a bot?") also go to the lab and the owner.
+
+## Proving he's you
+
+| Test | Answers | How |
+|------|---------|-----|
+| **Replay** | does he reply like you? | conversations hidden from him forever; he writes the reply, compared with the real one (fingerprint distance + judge model). Automatic. |
+| **Blind pick** | would someone notice? | owner sees real vs Ghost reply and picks. Goal: 50/50. Owner only for now (no disclosure, D-010). |
+| **Busted rate** | does it hold live? | how often contacts say "is this a bot", "you sound off" |
+| **Fact accuracy** | does he know things? | rehearsal fact questions |
+
+- Completeness (D-028) shows how much he **has**; tests show how **good** he is. The app shows both.
+- If replay scores drop after an update, the lab warns the owner. No automatic rollback.
+
+## No fine-tuning (for now)
+
+Examples, fingerprint and memory in the prompt. A fine-tune is frozen while people change daily, can't hold per-contact and per-language styles, and would need one model per Ghost. Revisit in session 7.

@@ -15,9 +15,9 @@ Parked questions. Each one names the session that should settle it.
 | Q-009 | Instinct tier tool: Jev (closed source, Sep 2026, one small eval: 89.6% accuracy, 1.6% confidently wrong) vs OpenAI's decision API (Omar's suggestion, to evaluate). Must sit behind our own interface so it can be swapped. | 7 |
 | Q-010 | ~~Tier map.~~ Resolved by D-022. | 1 |
 | Q-011 | Brake against runaway Ghost-to-Ghost loops (detection, what happens when it fires). | 4 |
-| Q-012 | How the style fingerprint and example bank are extracted from chat exports (per base, persona, contact). | 2 |
+| Q-012 | ~~Fingerprint and example bank extraction.~~ Resolved by D-037. | 2 |
 | Q-013 | Full tool catalog, and how Ghost asks for or builds a tool. | 3 |
-| Q-014 | Exact models per worker (strong model for intake, heartbeat, dreamer) within budget. | 7 |
+| Q-014 | Exact models per worker (strong model for intake, heartbeat, dreamer; Omar suggests Haiku for import triage) within budget. | 7 |
 | Q-015 | How much history WhatsApp (and others) send to a newly linked device, and how to read it. | 3 |
 | Q-016 | Per-chat learning exclusion: off for now; revisit before going public. | 4 / 6 |
 | Q-017 | ~~Final list of data kinds.~~ Resolved by D-036. | 2 |
