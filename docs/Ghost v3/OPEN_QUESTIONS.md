@@ -7,7 +7,7 @@ Parked questions. Each one names the session that should settle it.
 | Q-001 | ~~Accounts separate from Ghosts?~~ Resolved by D-012. | 0 |
 | Q-002 | ~~Do Ghosts know when they talk to each other?~~ Resolved by D-014. The runaway-loop brake moves to Q-011. | 1 |
 | Q-003 | Ban risk at scale. Light version decided (D-049); revisit detection and limits when scaling past personal testing. | 7 / 8 |
-| Q-004 | Ghosts of real people other than the owner contacting third parties as that person. Deferred: not a concern for the personal phase. The data model still carries owner, subject and consent fields (cheap now, costly to add later); rules come before going public. | 6 |
+| Q-004 | ~~Ghosts of other real people texting third parties.~~ Resolved by D-069 (no limits). | 6 |
 | Q-005 | ~~Persona vs override fields.~~ Resolved by D-023. | 1 |
 | Q-006 | ~~Memory audience rules.~~ Resolved by D-024. | 1 |
 | Q-007 | Budget number for the personal phase, and what "alive" looks like at that budget. | 7 |
@@ -19,5 +19,7 @@ Parked questions. Each one names the session that should settle it.
 | Q-013 | ~~Tool catalog.~~ Resolved by D-050. | 3 |
 | Q-014 | Exact models per worker (strong model for intake, heartbeat, dreamer; Omar suggests Haiku for import triage) within budget. | 7 |
 | Q-015 | How much history WhatsApp (and others) send to a newly linked device. Server-decided, unpublished: measure on a real account when building (D-043). | 8 |
-| Q-016 | Per-chat learning exclusion: off for now; revisit before going public. | 6 |
+| Q-016 | ~~Per-chat learning exclusion.~~ Resolved by D-070. | 6 |
 | Q-017 | ~~Final list of data kinds.~~ Resolved by D-036. | 2 |
+| Q-018 | App store rules and impersonation laws for Ghosts of real people, checked before a public launch (D-069). | 8 |
+| Q-019 | Pricing: usage-based subscription or other, once there are real users. | 8 |
