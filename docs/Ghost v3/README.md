@@ -10,7 +10,7 @@ The design record for Ghost v3. Nothing gets built until the relevant doc is wri
 | 1 | [01_MIND.md](01_MIND.md) | Identity, thinking loop, inner life, memory, tools | Done |
 | 2 | [02_DATA_AND_LEARNING.md](02_DATA_AND_LEARNING.md) | Every way Ghost learns his subject: interviews, imports, live observation, corrections, feeds | Done |
 | 3 | [03_BODY.md](03_BODY.md) | Channels, accounts, perception, media, acting human | Done |
-| 4 | 04_CONTROL.md | Takeover, hard rules, kill switches, escalation | Not started |
+| 4 | [04_CONTROL.md](04_CONTROL.md) | Takeover, hard rules, kill switches, escalation | Done |
 | 5 | 05_LAB.md | Internal debug dashboard: how Ghost thinks, live | Not started |
 | 6 | 06_PRODUCT.md | The app: users, onboarding, personas, accounts | Not started |
 | 7 | 07_ARCHITECTURE.md | Stack, hosting, models, storage | Not started |
